@@ -1,0 +1,80 @@
+#pragma once
+
+#include "json_fwd.hpp"
+#include "logger.hpp"
+
+#include <vector>
+#include <string>
+#include <memory>
+#include <functional>
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
+
+namespace server {
+class ServerManager;
+class App;
+struct Lobby;
+
+class HttpServer {
+public:
+#ifdef _WIN32
+    using socket_t = SOCKET;
+#else
+    using socket_t = int;
+#endif
+
+public:
+#ifndef LUXON_SERVER_POLL
+    std::function<void(socket_t)> on_create_fd;
+    std::function<void(socket_t)> on_delete_fd;
+#endif
+
+    explicit HttpServer(ServerManager& manager);
+    ~HttpServer();
+
+    // Bind to port and start listening (non-blocking)
+    bool bind(const std::string& address, uint16_t port);
+
+    // Updates given clients
+#ifndef LUXON_SERVER_POLL
+    void service(const std::vector<socket_t>& fds);
+#else
+    void service();
+#endif
+
+private:
+    struct HttpClient {
+        socket_t fd = -1;
+        std::string request_buffer;
+        std::string write_buffer;
+        bool mark_for_delete = false;
+        bool close_after_write = false;
+        bool shutdown_sent = false;
+    };
+
+    ServerManager& server_manager_;
+    std::shared_ptr<logger> log_;
+    socket_t server_fd_ = -1;
+    std::vector<HttpClient> clients_;
+
+    std::string index_html;
+
+    void queue_data(HttpClient& client, std::string_view data, bool close_connection);
+
+    // API handling
+    void handle_client_data(HttpClient& client);
+    void send_response(HttpClient& client, int status, const nlohmann::json& body);
+    void send_error(HttpClient& client, int status, std::string_view message);
+
+    // Routing
+    nlohmann::json route_request(std::string_view method, std::string path);
+
+    // Data helpers
+    std::shared_ptr<App> find_app_by_id(std::string_view app_id);
+    Lobby *find_lobby_by_index(App *app, std::string_view index_str);
+};
+} // namespace server

@@ -1,0 +1,16 @@
+#include "peer.hpp"
+#include "global.hpp"
+
+#include <luxon/visualizer.hpp>
+
+namespace server {
+void Peer::send(const ser::ByteArray& payload, const enet::EnetSendOptions& opt) {
+#ifndef NDEBUG
+    log->trace("Sending message using mode {} on channel {}:", static_cast<int>(opt.mode), opt.channel);
+    visualizer::print_ser_message(payload, 2, *protocol);
+#endif
+    enet_peer->send_payload(payload, opt);
+}
+
+void Peer::disconnect() { enet_peer->disconnect(); }
+} // namespace server

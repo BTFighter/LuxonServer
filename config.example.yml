@@ -1,0 +1,20 @@
+NameServer:
+  - port: 5058
+  - address: 192.168.1.100:5058
+
+MasterServer:
+  - port: 5055
+  - address: 192.168.1.100:5055
+
+GameServer:
+  - port: 5056
+  - address: 192.168.1.100:5056
+
+#HTTP:
+#  - active: false
+#  - address: 0.0.0.0
+#  - port: 5088
+
+#External:
+#  - type: GameServer
+#  - address: 159.195.5.90

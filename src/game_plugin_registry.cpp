@@ -1,0 +1,27 @@
+#include "game_plugin_registry.hpp"
+
+#include <unordered_map>
+
+namespace server {
+namespace game_plugins {
+namespace registry {
+namespace {
+std::unordered_map<std::string, PluginFactory> *plugins{};
+}
+
+bool register_(const std::string& name, PluginFactory&& plugin_factory) {
+    if (!plugins)
+        plugins = new typeof(*plugins);
+    return plugins->emplace(name, std::move(plugin_factory)).second;
+}
+
+std::unique_ptr<PluginBase> instanciate(Game *game, const std::string& name) {
+    auto res = plugins->find(name);
+    if (res == plugins->end())
+        return nullptr;
+
+    return res->second(game);
+}
+} // namespace registry
+} // namespace game_plugins
+} // namespace server

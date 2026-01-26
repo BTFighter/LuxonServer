@@ -1,0 +1,41 @@
+Content Warning
++ Works flawlessly
+- Tried to load plugin containing special event for player kicking
+
+Bomb Bots Arena
+- Fails to connect at first, tries protocol version 1.6
+- Tries to use unimplemented chat opcodes, then gives up
+
+Controlled Death
++ Loads in game, plays fine with bots
+
+Ducks Can Drive
++ Works flawlessly
+
+KEABE: Kill 'Em All - Bunny Edition
++ Loads in game
+- Uses stubbed "FindFriends" MasterServer opcode
+
+Paint Warfare
++ Works flawlessly
+
+Phasmophobia
++ Works flawlessly
+
+Super Animal Royale:
++ Loads in game
+- Multiplayer broken because of unimplemented chat opcodes
+
+Touhou Crisis
++ Works flawlessly
+
+Untitled Ghost Game
++ Works flawlessly
+
+
+Won't fix:
+Stumble Guys
+- Uses unimplemented server plugins
+
+VRChat
+- Stay away, developers have pursued legal action against third party hosted multiplayer before

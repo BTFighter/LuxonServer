@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Performance Metrics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- PROVIDED CSS STYLE --- */
+        :root {
+            --bg-body: #ffffff;
+            --bg-panel: #f8f9fa;
+            --bg-header: #eeeeee;
+            --text-main: #000000;
+            --text-muted: #555555;
+            --border-color: #cccccc;
+            --accent-color: #0055cc;
+            --accent-hover: #003399;
+            --state-success: #28a745;
+            --state-danger: #dc3545;
+            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #121212;
+            --bg-panel: #1e1e1e;
+            --bg-header: #2d2d2d;
+            --text-main: #e0e0e0;
+            --text-muted: #aaaaaa;
+            --border-color: #444444;
+            --accent-color: #64b5f6;
+            --accent-hover: #9be7ff;
+            --state-success: #81c784;
+            --state-danger: #e57373;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: var(--font-stack);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-size: 14px;
+            line-height: 1.5;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Layout Utilities */
+        header {
+            background-color: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { font-size: 1.25rem; margin: 0; font-weight: bold; }
+        h2 { font-size: 1.1rem; margin: 0; font-weight: bold; }
+
+        /* Buttons & Inputs */
+        button {
+            cursor: pointer;
+            padding: 6px 14px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-panel);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            border-radius: 4px;
+        }
+
+        button:hover { background-color: var(--border-color); }
+
+        button.primary {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-hover);
+        }
+        [data-theme="dark"] button.primary { color: #121212; }
+
+        button.primary:hover { opacity: 0.9; }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        input[type="number"], select {
+            padding: 6px 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: inherit;
+            border-radius: 4px;
+        }
+
+        /* Main Content */
+        main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+
+        /* Panels */
+        .panel {
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-panel);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .input-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        /* Status & Logs */
+        .stat-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Performance Statistics</h1>
+    <button id="themeToggle">Toggle Theme</button>
+</header>
+
+<main>
+    <div class="panel">
+        <div class="panel-header">
+            <h2>Configuration</h2>
+            <div class="status-dot status-green" id="connectionStatus" style="display:none;"></div>
+        </div>
+        <div class="controls-row">
+
+            <div class="input-group">
+                <label for="sourceSelect">Data Source</label>
+                <select id="sourceSelect">
+                    <option value="busy_time" selected>Busy Time</option>
+                    <option value="idle_time">Idle Time</option>
+                    <option value="load">Server Load</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="metricSelect">Metric Aggregation</label>
+                <select id="metricSelect">
+                    <option value="min">Minimum</option>
+                    <option value="avg" selected>Average</option>
+                    <option value="max">Maximum</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="durationInput">Window (ms)</label>
+                <input type="number" id="durationInput" value="1000" min="50" step="50">
+            </div>
+
+            <div class="input-group">
+                <label>&nbsp;</label>
+                <div class="controls">
+                    <button id="startBtn" class="primary">Start Monitor</button>
+                    <button id="stopBtn">Stop</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <h2 id="chartTitle">Live Monitor</h2>
+            <div class="controls">
+                <span style="color: var(--text-muted); font-size: 0.9rem;">Current: </span>
+                <span id="currentVal" style="font-weight: bold; margin-left: 5px;">--</span>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="statsChart"></canvas>
+        </div>
+    </div>
+</main>
+
+<script>
+    // --- State Management ---
+    let intervalId = null;
+    let chartInstance = null;
+    let dataPoints = [];
+    let labels = [];
+    const MAX_DATA_POINTS = 50; // Keep chart clean
+
+    // --- DOM Elements ---
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const sourceSelect = document.getElementById('sourceSelect');
+    const metricSelect = document.getElementById('metricSelect');
+    const durationInput = document.getElementById('durationInput');
+    const currentValDisplay = document.getElementById('currentVal');
+    const chartTitle = document.getElementById('chartTitle');
+    const themeToggle = document.getElementById('themeToggle');
+
+    // --- Theme Logic ---
+    themeToggle.addEventListener('click', () => {
+        const body = document.body;
+        if (body.getAttribute('data-theme') === 'dark') {
+            body.removeAttribute('data-theme');
+        } else {
+            body.setAttribute('data-theme', 'dark');
+        }
+        updateChartTheme();
+    });
+
+    // --- Chart Initialization ---
+    function initChart() {
+        const ctx = document.getElementById('statsChart').getContext('2d');
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+        const gridColor = isDark ? '#444444' : '#cccccc';
+        const textColor = isDark ? '#aaaaaa' : '#555555';
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Value',
+                    data: dataPoints,
+                    borderColor: getComputedStyle(document.body).getPropertyValue('--accent-color').trim(),
+                    backgroundColor: getComputedStyle(document.body).getPropertyValue('--accent-hover').trim() + '33',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, display: false }
+                    },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor },
+                        beginAtZero: true
+                        // max: will be set dynamically for Load
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: textColor }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateChartTheme() {
+        if(!chartInstance) return;
+
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+        const gridColor = isDark ? '#444444' : '#cccccc';
+        const textColor = isDark ? '#aaaaaa' : '#555555';
+        const accentColor = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
+
+        chartInstance.options.scales.x.grid.color = gridColor;
+        chartInstance.options.scales.y.grid.color = gridColor;
+        chartInstance.options.scales.x.ticks.color = textColor;
+        chartInstance.options.scales.y.ticks.color = textColor;
+        chartInstance.options.plugins.legend.labels.color = textColor;
+        chartInstance.data.datasets[0].borderColor = accentColor;
+
+        chartInstance.update();
+    }
+
+    // --- Data Fetching Logic ---
+    async function fetchFromEndpoint(endpoint, metric, duration) {
+        try {
+            const response = await fetch(`/stats/${endpoint}/${metric}/${duration}`);
+            if (!response.ok) throw new Error(`Error fetching ${endpoint}`);
+            return await response.json();
+        } catch (error) {
+            console.error("Fetch error:", error);
+            return null;
+        }
+    }
+
+    async function getNextDataPoint(source, metric, duration) {
+        if (source === 'load') {
+            // Calculate Load: busy / (busy + idle)
+            try {
+                const [busy, idle] = await Promise.all([
+                    fetchFromEndpoint('busy_time', metric, duration),
+                    fetchFromEndpoint('idle_time', metric, duration)
+                ]);
+
+                if (busy === null || idle === null) return null;
+
+                const total = busy + idle;
+                if (total === 0) return 0;
+
+                // Return percentage (0-100)
+                return (busy / total) * 100;
+            } catch (e) {
+                console.error("Calculation error", e);
+                return null;
+            }
+        } else {
+            // Direct fetch for busy_time or idle_time
+            return await fetchFromEndpoint(source, metric, duration);
+        }
+    }
+
+    function updateGraph(value, source) {
+        if (value === null) return;
+
+        const now = new Date();
+        const timeLabel = now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();
+
+        // Add Data
+        labels.push(timeLabel);
+        dataPoints.push(value);
+
+        // Remove Old Data
+        if (labels.length > MAX_DATA_POINTS) {
+            labels.shift();
+            dataPoints.shift();
+        }
+
+        // Determine units and labels based on source
+        let unit = 'µs';
+        let label = 'Execution Time';
+
+        if (source === 'load') {
+            unit = '%';
+            label = 'Server Load';
+            value = parseFloat(value).toFixed(2);
+        } else if (source === 'idle_time') {
+            label = 'Idle Time';
+        } else {
+            label = 'Busy Time';
+        }
+
+        // Update UI Text
+        chartTitle.innerText = `${label} (${source === 'load' ? 'Percentage' : 'Microseconds'})`;
+        currentValDisplay.innerText = `${value} ${unit}`;
+
+        // Update Chart Labels
+        chartInstance.data.datasets[0].label = `${label} (${unit})`;
+        chartInstance.update();
+    }
+
+    // --- Control Logic ---
+    function startMonitoring() {
+        if (intervalId) clearInterval(intervalId);
+
+        // Clear previous data for a clean start when switching modes
+        labels.length = 0;
+        dataPoints.length = 0;
+
+        const source = sourceSelect.value;
+        const metric = metricSelect.value;
+        const duration = parseInt(durationInput.value, 10);
+
+        if (isNaN(duration) || duration < 50) {
+            alert("Please enter a valid duration (minimum 50ms).");
+            return;
+        }
+
+        // --- Configure Chart Scale based on Source ---
+        if (source === 'load') {
+            // Force 0-100% scale for load
+            chartInstance.options.scales.y.max = 100;
+        } else {
+            // Remove max constraint for time metrics (auto-scale)
+            delete chartInstance.options.scales.y.max;
+        }
+        chartInstance.update();
+        // ---------------------------------------------
+
+        // Disable inputs
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        sourceSelect.disabled = true;
+        metricSelect.disabled = true;
+        durationInput.disabled = true;
+
+        // Fetch loop wrapper
+        const runFetch = async () => {
+            const val = await getNextDataPoint(source, metric, duration);
+            updateGraph(val, source);
+        };
+
+        // Immediate first fetch
+        runFetch();
+
+        // Set interval
+        intervalId = setInterval(runFetch, duration);
+    }
+
+    function stopMonitoring() {
+        if (intervalId) clearInterval(intervalId);
+        intervalId = null;
+
+        // Re-enable inputs
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        sourceSelect.disabled = false;
+        metricSelect.disabled = false;
+        durationInput.disabled = false;
+    }
+
+    // --- Event Listeners ---
+    startBtn.addEventListener('click', startMonitoring);
+    stopBtn.addEventListener('click', stopMonitoring);
+
+    // Initialize
+    initChart();
+    stopBtn.disabled = true;
+
+</script>
+
+</body>
+</html>
