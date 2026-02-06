@@ -133,7 +133,7 @@ public:
     ///
     /// \brief Calls the given function in a newly created thread
     /// \param fn Function to call in new thread
-    /// \return True if thread creation was successful, otherwise false
+    /// \return True if thread creation was successful and function didn't throw, otherwise false
     /// \note Non-blocking; Can only be used from inside of a coroutine
     ///
     bool call_in_new_thread(std::move_only_function<void()>&& fn);
