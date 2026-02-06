@@ -25,7 +25,7 @@ if (LUXON_SERVER_USE_SPD_LOG)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
-    add_subdirectory(../Luxon Luxon)
+    add_subdirectory(Luxon)
 
     add_subdirectory(sanmake)
 else()
