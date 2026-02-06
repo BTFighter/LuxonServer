@@ -31,7 +31,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
 else()
     set(LUXON_USE_TOMCRYPT ON CACHE BOOL "Force use of libtomcrypt" FORCE)
 
-    add_subdirectory(../Luxon Luxon)
+    add_subdirectory(Luxon)
     add_library(sanmake INTERFACE)
 endif()
 

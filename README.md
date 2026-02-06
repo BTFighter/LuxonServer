@@ -17,10 +17,6 @@ Chat opcodes aren't implemented yet.
 
 ## Getting Started
 
-### WORK IN PROGRESS
-
-I haven't open sourced Luxon itself yet. Unfortunately **that makes building this project impossible right now**. I'm planning to open source Luxon until Sunday.
-
 ### Prerequisites
 
 To build Luxon Server, you will need:
