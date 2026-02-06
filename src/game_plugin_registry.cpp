@@ -1,3 +1,6 @@
+// Copyright (c) 2026, the Luxon Server contributors
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "game_plugin_registry.hpp"
 
 #include <unordered_map>

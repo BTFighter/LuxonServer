@@ -1,3 +1,6 @@
+// Copyright (c) 2026, the Luxon Server contributors
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "handler_gameserver.hpp"
 #include "game.hpp"
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
