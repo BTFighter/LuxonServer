@@ -235,6 +235,8 @@ ServerManager::ServerManager(const std::string& config_file) {
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
 bool ServerManager::call_in_new_thread(std::move_only_function<void()>&& fn) {
     auto *coro = minicoro::Coroutine::current();
+    if (!coro)
+        return false;
 
     bool ok = false;
     std::thread([&, this] {
@@ -257,8 +259,10 @@ bool ServerManager::call_in_new_thread(std::move_only_function<void()>&& fn) {
     return ok;
 }
 
-void ServerManager::delay(unsigned int milliseconds) {
+bool ServerManager::delay(unsigned int milliseconds) {
     auto *coro = minicoro::Coroutine::current();
+    if (!coro)
+        return false;
 
     add_scheduled_task(milliseconds, [coro, this] {
         if (!coro->resume())
@@ -266,6 +270,7 @@ void ServerManager::delay(unsigned int milliseconds) {
     });
 
     coro->yield();
+    return true;
 }
 #endif
 

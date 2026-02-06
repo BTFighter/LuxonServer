@@ -140,9 +140,11 @@ public:
     ///
     /// \brief Delays execution
     /// \param milliseconds Amount of milliseconds until function returns
+    /// \return True if at least the given amount of time has elapsed, otherwise false
     /// \note Non-blocking; Can only be used from inside of a coroutine
+    /// \note Might wait up to around 125 milliseconds longer than specified if polling is disabled
     ///
-    void delay(unsigned milliseconds);
+    bool delay(unsigned milliseconds);
 
     ///
     /// \brief Enqueues a function to be called from main loop, on main thread
