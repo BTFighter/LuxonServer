@@ -9,17 +9,25 @@
 namespace server {
 // FNV-1a (64-bit), non-secure
 [[nodiscard]]
-constexpr std::uint64_t string_hash(std::string_view sv) noexcept {
-    std::uint64_t h; // offset basis
-    if constexpr (sizeof(size_t) == 4)
-        h = 2166136261u;
-    else
-        h = 14695981039346656037ull;
-    for (unsigned char c : sv) {
-        h ^= c;
-        h *= 1099511628211ull; // FNV prime
+constexpr std::size_t string_hash(std::string_view s) noexcept {
+    if constexpr (sizeof(std::size_t) == 8) {
+        // 64-bit FNV-1a
+        std::size_t h = 1469598103934665603ULL;
+        for (uint8_t b : s) {
+            h ^= b;
+            h *= 1099511628211ULL;
+        }
+        return h;
+    } else {
+        // 32-bit FNV-1a
+        // Basis: 2166136261, Prime: 16777619
+        std::size_t h = 2166136261U;
+        for (uint8_t b : s) {
+            h ^= b;
+            h *= 16777619U;
+        }
+        return h;
     }
-    return h;
 }
 
 struct StringPairHasher {
