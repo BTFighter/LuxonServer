@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <unordered_map>
 #include <fcntl.h>
-#include <unistd.h>
 #include <luxon/http_parser.hpp>
 #include <luxon/ser_types.hpp>
 #include <luxon/enet_peer.hpp>
@@ -33,9 +32,11 @@
 #define CLOSE_SOCKET close
 #endif
 
+extern "C" {
 INCBIN(index_html, SOURCE_DIR "/index.html");
 INCBIN(stats_html, SOURCE_DIR "/stats.html");
 INCBIN(style_css, SOURCE_DIR "/style.css");
+}
 
 using json = nlohmann::json;
 using namespace luxon::ser;

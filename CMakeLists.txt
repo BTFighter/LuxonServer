@@ -14,7 +14,7 @@ option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of game plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
 
 # Apply single-threaded optimizations if strictly single-threaded
-if (NOT LUXON_SERVER_ENABLE_PLUGINS AND NOT MSVC)
+if (NOT LUXON_SERVER_ENABLE_PLUGINS AND NOT WIN32)
     add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU>:-fno-threadsafe-statics>)
     add_compile_definitions(thread_local=)
 endif()
