@@ -22,7 +22,7 @@ public:
 
     void HandleDisconnect() override;
     void HandleSlowUpdate() override;
-    void HandleOperationRequest(ser::OperationRequestMessage& req, const enet::EnetCommandHeader& cmd_header) override;
+    void HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) override;
 
 protected:
     Lobby *lobby_;

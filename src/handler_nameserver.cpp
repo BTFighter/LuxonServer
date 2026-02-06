@@ -10,9 +10,9 @@
 #include <luxon/ser_interface.hpp>
 
 namespace server {
-void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, const enet::EnetCommandHeader& cmd_header) {
+void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     if (cmd_header.channel_id != 0)
-        return HandlerBase::HandleOperationRequest(req, cmd_header);
+        return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 
     if (!peer_->is_authenticated()) {
         switch (req.operation_code) {
@@ -38,12 +38,12 @@ void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
             ser::OperationResponseMessage resp{.operation_code = OpCodes::RpcAndMisc::GetRegions, .return_code = 0};
             resp.parameters[DictKeyCodes::AuthAndLobby::Region] = std::vector<std::string>{"eu"};
             resp.parameters[DictKeyCodes::LoadBalancing::Address] = std::vector<std::string>{server_manager_.get_endpoint_of(ServerType::MasterServer)};
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             return;
         }
         }
     }
 
-    return HandlerBase::HandleOperationRequest(req, cmd_header);
+    return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 }
 } // namespace server

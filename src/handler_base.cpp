@@ -99,10 +99,10 @@ void HandlerBase::HandleENetCommand(const enet::EnetCommand& cmd) {
         return HandleInitRequest(*req, cmd.header);
 
     if (auto *req = std::get_if<ser::OperationRequestMessage>(&message))
-        return HandleOperationRequest(*req, cmd.header);
+        return HandleOperationRequest(*req, message.encrypted, cmd.header);
 
     if (auto *req = std::get_if<ser::InternalOperationRequestMessage>(&message))
-        return HandleInternalOperationRequest(*req, cmd.header);
+        return HandleInternalOperationRequest(*req, message.encrypted, cmd.header);
 
     peer_->log->warn("Invalid message type {} received", message.index());
 }
@@ -151,7 +151,7 @@ void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::Enet
 
             ser::OperationRequestMessage photon_req{.operation_code = OpCodes::Auth::AuthenticateOnce};
             photon_req.parameters[DictKeyCodes::LoadBalancing::Token] = token;
-            HandleOperationRequest(photon_req, cmd_header);
+            HandleOperationRequest(photon_req, false, cmd_header);
         }
     } else {
         // We don't know what this HTTP request is!
@@ -164,7 +164,7 @@ void HandlerBase::HandleInitRequest(ser::InitMessage& req, const enet::EnetComma
     // Answer init request
     const bool ok = req.protocol_major == 1 && req.protocol_minor == 8;
     if (ok) {
-        send(proto_.Serialize(ser::InitResponseMessage{}, false), enet::EnetSendOptions{cmd_header.channel_id});
+        send(proto_.Serialize(ser::InitResponseMessage{}), enet::EnetSendOptions{cmd_header.channel_id});
         peer_->log->info("Connection init complete");
     } else {
         peer_->log->error("Connection init failed: Protocol mismatch");
@@ -172,7 +172,7 @@ void HandlerBase::HandleInitRequest(ser::InitMessage& req, const enet::EnetComma
     }
 }
 
-void HandlerBase::HandleOperationRequest(ser::OperationRequestMessage& req, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     // Only answer unknown operations on channel 0
     if (cmd_header.channel_id != 0)
         return;
@@ -181,18 +181,18 @@ void HandlerBase::HandleOperationRequest(ser::OperationRequestMessage& req, cons
     if (req.operation_code == OpCodes::Auth::Authenticate && peer_->is_authenticated()) {
         const ser::OperationResponseMessage resp{
             .operation_code = req.operation_code, .return_code = ErrorCodes::Core::OperationNotAllowedInCurrentState, .debug_message = "Already authenticated"};
-        send(proto_.Serialize(resp, false));
+        send(proto_.Serialize(resp));
         return;
     }
 
     const ser::OperationResponseMessage resp{.operation_code = req.operation_code,
                                              .return_code = ErrorCodes::Core::OperationInvalid,
                                              .debug_message = std::format("Unsupported operation {}", req.operation_code)};
-    send(proto_.Serialize(resp, false));
+    send(proto_.Serialize(resp));
     peer_->log->warn("Client sent operation request with unknown opcode: {}", req.operation_code);
 }
 
-void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMessage& req, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     if (cmd_header.channel_id != 0)
         return;
 
@@ -203,7 +203,7 @@ void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMe
             peer_->log->error("Failed to establish encryption: {}", expected_response.error().message);
             return;
         }
-        send(proto_.Serialize(*expected_response, false));
+        send(proto_.Serialize(*expected_response));
 
         peer_->log->info("Established encryption");
     } else if (req.operation_code == ser::Codes::IOpPing) {
@@ -217,13 +217,13 @@ void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMe
         resp.parameters[ser::Codes::IKeyServerTimestamp] = static_cast<int32_t>(peer_->enet_peer->get_server_time());
         peer_->log->info("Got internal operation ping: TS={}", client_ts.get<int32_t>());
 
-        send(proto_.Serialize(resp, false));
+        send(proto_.Serialize(resp));
     } else {
         // Answer unknown operation
         const ser::OperationResponseMessage resp{.operation_code = req.operation_code,
                                                  .return_code = ErrorCodes::Core::OperationInvalid,
                                                  .debug_message = std::format("Unsupported internal operation {}", req.operation_code)};
-        send(proto_.Serialize(resp, false));
+        send(proto_.Serialize(resp));
         peer_->log->warn("Client sent internal operation request with unknown opcode: {}", req.operation_code);
     }
 }

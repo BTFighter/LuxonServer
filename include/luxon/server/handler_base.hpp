@@ -30,8 +30,8 @@ public:
     virtual void HandleENetCommand(const enet::EnetCommand& cmd);
     virtual void HandleHTTPRequest(const HttpRequest& request, const enet::EnetCommandHeader& cmd_header);
     virtual void HandleInitRequest(ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header);
-    virtual void HandleOperationRequest(ser::OperationRequestMessage& req, const enet::EnetCommandHeader& cmd_header);
-    virtual void HandleInternalOperationRequest(ser::InternalOperationRequestMessage& req, const enet::EnetCommandHeader& cmd_header);
+    virtual void HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header);
+    virtual void HandleInternalOperationRequest(ser::InternalOperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header);
 
     const std::shared_ptr<Peer>& get_peer() const { return peer_; }
 

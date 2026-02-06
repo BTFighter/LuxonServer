@@ -38,9 +38,9 @@ void MasterServerHandler::HandleSlowUpdate() {
     HandlerBase::HandleSlowUpdate();
 }
 
-void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, const enet::EnetCommandHeader& cmd_header) {
+void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     if (cmd_header.channel_id != 0)
-        return HandlerBase::HandleOperationRequest(req, cmd_header);
+        return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 
     if (!peer_->is_authenticated()) {
         switch (req.operation_code) {
@@ -111,7 +111,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 join_lobby(joined_lobby);
                 resp = {.operation_code = OpCodes::Lobby::JoinLobby, .return_code = ErrorCodes::Core::Ok};
             }
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             peer_->log->info("Joined lobby: {}", lobby_name.empty() ? "(unnamed)" : lobby_name);
 
             // Send game list
@@ -128,7 +128,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::LeaveLobby,
                                                          .return_code = ErrorCodes::Data::InvalidRequestParameters,
                                                          .debug_message = "Bad parameter: LobbyName"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -143,7 +143,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             else
                 // Everything is ok
                 peer_->log->info("Left lobby: {}", lobby_->name.empty() ? "(unnamed)" : lobby_->name);
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             return;
         }
 
@@ -163,7 +163,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             });
 
             // Send response
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             return;
         }
 
@@ -183,7 +183,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             });
 
             // Send response
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             return;
         }
 
@@ -196,7 +196,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::CreateGame,
                                                          .return_code = ErrorCodes::Core::OperationNotAllowedInCurrentState,
                                                          .debug_message = "Not in lobby"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -209,7 +209,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::CreateGame,
                                                          .return_code = ErrorCodes::Matchmaking::GameIdAlreadyExists,
                                                          .debug_message = "Game ID already exists"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -226,7 +226,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             resp.parameters[DictKeyCodes::GameAndActor::GameId] = game->id;
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
 
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             peer_->log->info("Joining newly created game: {}", game->id);
 
             return;
@@ -242,7 +242,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
                                                          .return_code = ErrorCodes::Core::OperationNotAllowedInCurrentState,
                                                          .debug_message = "Not in lobby"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -257,7 +257,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                     const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
                                                              .return_code = ErrorCodes::Matchmaking::GameIdNotExists,
                                                              .debug_message = "Game ID does not exist"};
-                    send(proto_.Serialize(resp, false));
+                    send(proto_.Serialize(resp));
                     return;
                 }
 
@@ -272,7 +272,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
                                                          .return_code = ErrorCodes::Core::InternalServerError,
                                                          .debug_message = "Game has expired"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -281,7 +281,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             if (join_validation_code != ErrorCodes::Core::Ok) {
                 const ser::OperationResponseMessage resp{
                     .operation_code = OpCodes::Matchmaking::JoinGame, .return_code = join_validation_code, .debug_message = "Game closed or full"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -296,7 +296,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer);
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
 
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             peer_->log->info("Joining {} game: {}", game->id, is_new ? "newly created" : "existing");
             return;
         }
@@ -312,7 +312,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinRandomGame,
                                                          .return_code = ErrorCodes::Matchmaking::NoRandomMatchFound,
                                                          .debug_message = "Not in lobby"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -346,7 +346,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinRandomGame,
                                                          .return_code = ErrorCodes::Matchmaking::NoRandomMatchFound,
                                                          .debug_message = "No matching game found"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -381,7 +381,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinRandomGame,
                                                          .return_code = ErrorCodes::Matchmaking::NoRandomMatchFound,
                                                          .debug_message = "No match found"};
-                send(proto_.Serialize(resp, false));
+                send(proto_.Serialize(resp));
                 return;
             }
 
@@ -403,7 +403,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             resp.parameters[DictKeyCodes::GameAndActor::GameId] = selected_game->id;
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
 
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             peer_->log->info("Matchmaking success. Joining game: {}", selected_game->id);
             return;
         }
@@ -425,13 +425,13 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             resp.parameters[DictKeyCodes::AuthAndLobby::FindFriendsResponseOnlineList] = std::vector<bool>{false};
             resp.parameters[DictKeyCodes::AuthAndLobby::FindFriendsResponseRoomIdList] = std::vector<std::string>{""};
 
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp));
             return;
         }
         }
     }
 
-    return HandlerBase::HandleOperationRequest(req, cmd_header);
+    return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 }
 
 void MasterServerHandler::join_lobby(Lobby *lobby) {
@@ -447,7 +447,7 @@ void MasterServerHandler::join_lobby(Lobby *lobby) {
                 event.event_code = EventCodes::GameList;
                 event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list([game](const Game& o) { return &o == game.get(); });
 
-                send(proto_.Serialize(event, false));
+                send(proto_.Serialize(event));
             },
         .game_change =
             [this](const std::shared_ptr<Game>& game) {
@@ -456,7 +456,7 @@ void MasterServerHandler::join_lobby(Lobby *lobby) {
                 event.event_code = EventCodes::GameList;
                 event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list([game](const Game& o) { return &o == game.get(); });
 
-                send(proto_.Serialize(event, false));
+                send(proto_.Serialize(event));
             },
         .game_delete =
             [this](Game *game) {
@@ -468,7 +468,7 @@ void MasterServerHandler::join_lobby(Lobby *lobby) {
                 auto& game_props = *(game_list[game->id] = std::make_shared<ser::Hashtable>()).get<ser::HashtablePtr>();
                 game_props[GameProps::Removed] = true;
 
-                send(proto_.Serialize(event, false));
+                send(proto_.Serialize(event));
             }});
     game_list_update_handler_ = lobby->game_list_update_handlers.begin();
 }
@@ -495,7 +495,7 @@ void MasterServerHandler::send_app_stats() {
     event.parameters[DictKeyCodes::LoadBalancing::PeerCount] = static_cast<int32_t>(server_manager_.get_connection_count<GameServerHandler>());
     event.parameters[DictKeyCodes::LoadBalancing::MasterPeerCount] = static_cast<int32_t>(server_manager_.get_connection_count<MasterServerHandler>());
 
-    send(proto_.Serialize(event, false));
+    send(proto_.Serialize(event));
 }
 
 ser::Dictionary MasterServerHandler::get_lobby_stats(std::function<bool(const Lobby&)> lobby_filter) {
@@ -526,7 +526,7 @@ void MasterServerHandler::send_lobby_stats() {
     event.event_code = EventCodes::LobbyStats;
     event.parameters = get_lobby_stats();
 
-    send(proto_.Serialize(event, false));
+    send(proto_.Serialize(event));
 }
 
 ser::HashtablePtr MasterServerHandler::get_game_list(std::function<bool(const Lobby&)> lobby_filter, std::function<bool(const Game&)> game_filter) {
@@ -555,6 +555,6 @@ void MasterServerHandler::send_game_list() {
     event.event_code = EventCodes::GameList;
     event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list();
 
-    send(proto_.Serialize(event, false));
+    send(proto_.Serialize(event));
 }
 } // namespace server
