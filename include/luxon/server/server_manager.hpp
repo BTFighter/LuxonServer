@@ -138,7 +138,7 @@ public:
     ///
     bool call_in_new_thread(std::move_only_function<void()>&& fn);
     ///
-    /// \brief Delays execution
+    /// \brief Wait for a while
     /// \param milliseconds Amount of milliseconds until function returns
     /// \return True if at least the given amount of time has elapsed, otherwise false
     /// \note Non-blocking; Can only be used from inside of a coroutine

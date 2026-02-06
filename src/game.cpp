@@ -58,6 +58,10 @@ GamePeer *Game::add_peer(GamePeer&& game_peer) {
     if (!peer)
         return nullptr;
 
+    // Make sure actor_id is unique
+    if (find_peer(game_peer.actor_id))
+        return nullptr;
+
     // Check user id uniqueness if enabled
     if (flags & GameFlags::CheckUserOnJoin)
         for (const auto& that_game_peer : peers)
@@ -250,7 +254,18 @@ int16_t Game::validate_join(const std::string& user_id, size_t new_expected_user
         // Return error if game is full
         if (current_count + reserved_count + needed_slots > max_peers)
             return ErrorCodes::Matchmaking::GameFull;
+
+        // Return error if actor list is full
+        if (peers.size() + needed_slots > 0xfe)
+            return ErrorCodes::Matchmaking::ActorListFull;
     }
+
+    // Check user id uniqueness if enabled
+    if (flags & GameFlags::CheckUserOnJoin)
+        for (const auto& that_game_peer : peers)
+            if (auto that_peer = that_game_peer.peer.lock())
+                if (that_peer->persistent && that_peer->persistent->user_id == user_id)
+                    return ErrorCodes::Matchmaking::JoinFail::JoinFailedPeerAlreadyJoined;
 
     return ErrorCodes::Core::Ok;
 }
@@ -289,7 +304,10 @@ ser::Value Game::get_game_prop(const ser::Value& key) {
     if (update_lobby)
         trigger_lobby_update();
 
-    return custom_props[key];
+    auto res = custom_props.find(key);
+    if (res == custom_props.end())
+        return ser::Value(); // null
+    return res->second;
 }
 
 ser::Hashtable Game::get_basic_game_props() {
@@ -365,8 +383,12 @@ bool Game::expect_game_props(ser::Hashtable expected) {
     return true;
 }
 
-void Game::insert_actor_props(int32_t actor_id, const ser::Hashtable& update) {
-    auto& actor_props = find_peer(actor_id)->actor_props;
+bool Game::insert_actor_props(int32_t actor_id, const ser::Hashtable& update) {
+    auto *game_peer = find_peer(actor_id);
+    if (!game_peer)
+        return false;
+
+    auto& actor_props = game_peer->actor_props;
 
     const bool delete_null = flags & GameFlags::DeleteNullProps;
     for (const auto& [key, value] : update) {
@@ -378,6 +400,8 @@ void Game::insert_actor_props(int32_t actor_id, const ser::Hashtable& update) {
                 actor_props.erase(res);
         }
     }
+
+    return true;
 }
 
 bool Game::expect_actor_props(int32_t actor_id, const ser::Hashtable& expected) {

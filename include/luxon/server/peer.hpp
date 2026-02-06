@@ -21,8 +21,20 @@ struct Peer {
     std::shared_ptr<logger> log;
     std::unique_ptr<PeerPersistent> persistent;
 
+    ///
+    /// \brief Checks if client has successfully authenticated with the server
+    /// \return True if the client is authenticated, otherwise false
+    ///
     bool is_authenticated() const { return persistent != nullptr; }
+    ///
+    /// \brief Enqueues a payload to be sent to the client
+    /// \param payload Payload to send
+    /// \param opt Options to send payload with
+    ///
     void send(const ser::ByteArray& payload, const enet::EnetSendOptions& opt);
+    ///
+    /// \brief Disconnects the client immediately
+    ///
     void disconnect();
 };
 } // namespace server

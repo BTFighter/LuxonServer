@@ -91,23 +91,103 @@ struct Game : std::enable_shared_from_this<Game> {
 
     std::list<GamePeer> peers;
 
+    ///
+    /// \brief Creates a GamePeer that can later be added to the game
+    /// \param peer The peer that's going to be behind the GamePeer
+    /// \return Complete GamePeer
+    /// \note Returned GamePeer must not be added to any other game
+    /// \note Returned GamePeer has actor_id set, but actor_id won't be fully reserved. It might be taken by another GamePeer after a long time.
+    ///
     GamePeer create_peer(std::shared_ptr<Peer> peer);
+    ///
+    /// \brief Adds given GamePeer to game
+    /// \param game_peer GamePeer to add to game, must've been previously created by the same Game using create_peer()
+    /// \return Pointer to added GamePeer if successful, otherwise nullptr
+    /// \note Fails if actor_id is already taken or CheckUserOnJoin flag is set and user id is already taken
+    ///
     GamePeer *add_peer(GamePeer&& game_peer);
+    ///
+    /// \brief Removes peer's GamePeer from game
+    /// \param peer Peer whos GamePeer to remove
+    /// \return True if a GamePeer was removed, otherwise false
+    ///
     bool remove_peer(const std::shared_ptr<Peer>& peer);
+    ///
+    /// \brief Floods given peer with cached events
+    /// \param game_peer GamePeer to flood
+    /// \return True if flooding was successful, otherwise false
+    ///
     bool flood_peer(GamePeer *game_peer);
+    ///
+    /// \brief Finds peer with given actor_id
+    /// \param actor_id Actor_id to look for
+    /// \return Pointer to GamePeer with given actor_id if successful, otherwise nullptr
+    ///
     GamePeer *find_peer(int32_t actor_id);
+    ///
+    /// \brief Broadcasts an event to the lobby
+    /// \param event Event to broadcast
+    ///
     void broadcast_event(Event& event);
+    ///
+    /// \brief Checks if user + given amount of expected users can join
+    /// \param user_id User ID of primary user trying to join
+    /// \param new_expected_users_count Amount of users to calculate in as well
+    /// \return ErrorCode value
+    ///
     int16_t validate_join(const std::string& user_id, size_t new_expected_users_count = 0) const;
 
+    ///
+    /// \brief Updates the game in the lobby's game list
+    ///
     void trigger_lobby_update();
 
+    ///
+    /// \brief Gets well-known or custom game property
+    /// \param key Property to get
+    /// \return Value of property, null-value if not found
+    ///
     ser::Value get_game_prop(const ser::Value& key);
+    ///
+    /// \brief Gets all well-known game properties that are to be shown in lobby
+    /// \return Hashtable with well-known keys/value property pairs
+    ///
     ser::Hashtable get_basic_game_props();
+    ///
+    /// \brief Gets all game properties
+    /// \param no_custom Excludes custom properties
+    /// \return Hashtable with keys/value property pairs
+    ///
     ser::Hashtable get_game_props(bool no_custom = false);
+    ///
+    /// \brief Gets all properties from all actors
+    /// \return Hashtable with actor->properties pairs containing key/value property pairs
+    ///
     ser::Hashtable get_actor_props();
+    ///
+    /// \brief Merges a hashtable with given properties into game properties
+    /// \param update Hashtable with keys/value property pairs
+    ///
     void insert_game_props(ser::Hashtable update);
+    ///
+    /// \brief Checks if the expectation of given properties is met
+    /// \param expected Hashtable with keys/value property pairs
+    /// \return True if expectation is met, otherwise false
+    ///
     bool expect_game_props(ser::Hashtable expected);
-    void insert_actor_props(int32_t actor_id, const ser::Hashtable& update);
+    ///
+    /// \brief Merges a hashtable with given properties into given actors properties
+    /// \param actor_id actor_id of actor whos properties to access
+    /// \param update Hashtable with keys/value property pairs
+    /// \return True if given actor was found and its properties updated
+    ///
+    bool insert_actor_props(int32_t actor_id, const ser::Hashtable& update);
+    ///
+    /// \brief Checks if the expectation of given properties is met
+    /// \param actor_id actor_id of actor whos properties to access
+    /// \param expected Hashtable with keys/value property pairs
+    /// \return True if expectation is met, otherwise false
+    ///
     bool expect_actor_props(int32_t actor_id, const ser::Hashtable& expected);
 
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
