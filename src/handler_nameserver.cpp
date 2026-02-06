@@ -29,7 +29,7 @@ void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
             }
 
             // Send payload
-            send(proto_.Serialize(resp, is_encrypted));
+            send(proto_->Serialize(resp, is_encrypted));
             return;
         }
 
@@ -38,7 +38,7 @@ void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
             ser::OperationResponseMessage resp{.operation_code = OpCodes::RpcAndMisc::GetRegions, .return_code = 0};
             resp.parameters[DictKeyCodes::AuthAndLobby::Region] = std::vector<std::string>{"eu"};
             resp.parameters[DictKeyCodes::LoadBalancing::Address] = std::vector<std::string>{server_manager_.get_endpoint_of(ServerType::MasterServer)};
-            send(proto_.Serialize(resp));
+            send(proto_->Serialize(resp));
             return;
         }
         }

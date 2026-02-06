@@ -63,7 +63,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
         if (!is_master) {
             const ser::OperationResponseMessage resp{
                 .operation_code = req.operation_code, .return_code = ErrorCodes::Core::OperationNotAllowedInCurrentState, .debug_message = "Must be master"};
-            send(proto_.Serialize(resp), enet::EnetSendOptions{cmd_header.channel_id});
+            send(proto_->Serialize(resp), enet::EnetSendOptions{cmd_header.channel_id});
             return false;
         }
         return true;
@@ -72,7 +72,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
         if ((game_peer_ && game_peer_->actor_id != 0) != joined) {
             const ser::OperationResponseMessage resp{
                 .operation_code = req.operation_code, .return_code = ErrorCodes::Core::OperationNotAllowedInCurrentState, .debug_message = "Must join first"};
-            send(proto_.Serialize(resp), enet::EnetSendOptions{cmd_header.channel_id});
+            send(proto_->Serialize(resp), enet::EnetSendOptions{cmd_header.channel_id});
             return false;
         }
         return true;
@@ -94,7 +94,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 resp.parameters[DictKeyCodes::LoadBalancing::Position] = static_cast<int32_t>(0);
 
             // Send response
-            send(proto_.Serialize(resp, is_encrypted));
+            send(proto_->Serialize(resp, is_encrypted));
             return;
         }
         }
@@ -134,7 +134,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 if (res == Result::Fail) {
                     const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lite::RaiseEvent,
                                                          .return_code = ErrorCodes::Matchmaking::PluginReportedError};
-                    send(proto_.Serialize(resp), enet::EnetSendOptions{.channel = cmd_header.channel_id});
+                    send(proto_->Serialize(resp), enet::EnetSendOptions{.channel = cmd_header.channel_id});
                     return;
                 }
             });
@@ -144,7 +144,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lite::RaiseEvent,
                                                          .return_code = ErrorCodes::Core::OperationInvalid,
                                                          .debug_message = "Not allowed to raise Photon events (codes higher than 220)"};
-                send(proto_.Serialize(resp), enet::EnetSendOptions{.channel = cmd_header.channel_id});
+                send(proto_->Serialize(resp), enet::EnetSendOptions{.channel = cmd_header.channel_id});
                 return;
             }
 
@@ -234,7 +234,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 const ser::OperationResponseMessage resp{.operation_code = req.operation_code,
                                                          .return_code = ErrorCodes::Matchmaking::GameIdNotExists,
                                                          .debug_message = "Token not valid for this Game ID"};
-                send(proto_.Serialize(resp));
+                send(proto_->Serialize(resp));
                 return;
             }
 
@@ -260,7 +260,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 if (join_validation_code != ErrorCodes::Core::Ok) {
                     const ser::OperationResponseMessage resp{
                         .operation_code = OpCodes::Matchmaking::JoinGame, .return_code = join_validation_code, .debug_message = "Game closed or full"};
-                    send(proto_.Serialize(resp));
+                    send(proto_->Serialize(resp));
                     return;
                 }
             }
@@ -282,7 +282,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
 
                 if (res == Result::Fail) {
                     const ser::OperationResponseMessage resp{.operation_code = req.operation_code, .return_code = ErrorCodes::Matchmaking::PluginReportedError};
-                    send(proto_.Serialize(resp));
+                    send(proto_->Serialize(resp));
                     return;
                 }
             })
@@ -331,7 +331,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                     peer_->disconnect();
 
                     const ser::OperationResponseMessage resp{.operation_code = req.operation_code, .return_code = ErrorCodes::Matchmaking::PluginReportedError};
-                    send(proto_.Serialize(resp));
+                    send(proto_->Serialize(resp));
                     return;
                 }
 
@@ -377,7 +377,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
             if (broadcast_actor_props)
                 resp.parameters[DictKeyCodes::Properties::ActorProperties] = std::move(all_actor_props);
 
-            send(proto_.Serialize(resp));
+            send(proto_->Serialize(resp));
 
             // Broadcast Join Event
             if (!(game->flags & GameFlags::SuppressRoomEvents)) {
@@ -404,14 +404,14 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
 
                 if (res == Result::Fail) {
                     const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lite::Leave, .return_code = ErrorCodes::Matchmaking::PluginReportedError};
-                    send(proto_.Serialize(resp));
+                    send(proto_->Serialize(resp));
                     return;
                 }
             })
 
             // Send success response
             const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lite::Leave, .return_code = ErrorCodes::Core::Ok};
-            send(proto_.Serialize(resp));
+            send(proto_->Serialize(resp));
             return;
 
             // Disconnect, handler will do the rest
@@ -444,7 +444,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 if (res == Result::Fail) {
                     const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lite::SetProperties,
                                                          .return_code = ErrorCodes::Matchmaking::PluginReportedError};
-                    send(proto_.Serialize(resp));
+                    send(proto_->Serialize(resp));
                     return;
                 }
 
@@ -470,7 +470,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
             ser::OperationResponseMessage resp;
             resp.operation_code = OpCodes::Lite::SetProperties;
             resp.return_code = ok ? ErrorCodes::Core::Ok : ErrorCodes::Core::OperationInvalid;
-            send(proto_.Serialize(resp));
+            send(proto_->Serialize(resp));
 
             // Broadcast property updates
             if (ok && broadcast) {
@@ -504,7 +504,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lite::ChangeInterestGroups,
                                                          .return_code = ErrorCodes::Data::InvalidRequestParameters,
                                                          .debug_message = "Bad parameter type, expected byte array"};
-                send(proto_.Serialize(resp));
+                send(proto_->Serialize(resp));
                 return;
             }
 

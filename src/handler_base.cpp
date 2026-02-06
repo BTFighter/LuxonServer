@@ -79,7 +79,7 @@ void HandlerBase::HandleENetConnectionStateChange(enet::EnetConnectionState stat
 void HandlerBase::HandleENetCommand(const enet::EnetCommand& cmd) {
     // Try to parse header
     ser::Message message;
-    auto expected_message = proto_.Deserialize(cmd.payload);
+    auto expected_message = proto_->Deserialize(cmd.payload);
     if (!expected_message) {
         // Try to parse as HTTP request
         if (auto expected_request = luxon::parse_raw_http(std::string_view{reinterpret_cast<const char *>(cmd.payload.data()), cmd.payload.size()})) {
@@ -161,10 +161,13 @@ void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::Enet
 }
 
 void HandlerBase::HandleInitRequest(ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header) {
+    // Try to create new protocol implementation for given version
+    auto protocol = ser::IProtocol::make(req.protocol_major, req.protocol_minor);
+
     // Answer init request
-    const bool ok = req.protocol_major == 1 && req.protocol_minor == 8;
-    if (ok) {
-        send(proto_.Serialize(ser::InitResponseMessage{}), enet::EnetSendOptions{cmd_header.channel_id});
+    if (protocol) {
+        proto_ = std::move(protocol);
+        send(proto_->Serialize(ser::InitResponseMessage{}), enet::EnetSendOptions{cmd_header.channel_id});
         peer_->log->info("Connection init complete");
     } else {
         peer_->log->error("Connection init failed: Protocol mismatch");
@@ -181,14 +184,14 @@ void HandlerBase::HandleOperationRequest(ser::OperationRequestMessage& req, bool
     if (req.operation_code == OpCodes::Auth::Authenticate && peer_->is_authenticated()) {
         const ser::OperationResponseMessage resp{
             .operation_code = req.operation_code, .return_code = ErrorCodes::Core::OperationNotAllowedInCurrentState, .debug_message = "Already authenticated"};
-        send(proto_.Serialize(resp));
+        send(proto_->Serialize(resp));
         return;
     }
 
     const ser::OperationResponseMessage resp{.operation_code = req.operation_code,
                                              .return_code = ErrorCodes::Core::OperationInvalid,
                                              .debug_message = std::format("Unsupported operation {}", req.operation_code)};
-    send(proto_.Serialize(resp));
+    send(proto_->Serialize(resp));
     peer_->log->warn("Client sent operation request with unknown opcode: {}", req.operation_code);
 }
 
@@ -198,12 +201,12 @@ void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMe
 
     if (req.operation_code == ser::Codes::IOpInitEncryption) {
         // Answer crypto handshake
-        auto expected_response = proto_.HandleInitEncryptionRequest(req);
+        auto expected_response = proto_->HandleInitEncryptionRequest(req);
         if (!expected_response) {
             peer_->log->error("Failed to establish encryption: {}", expected_response.error().message);
             return;
         }
-        send(proto_.Serialize(*expected_response));
+        send(proto_->Serialize(*expected_response));
 
         peer_->log->info("Established encryption");
     } else if (req.operation_code == ser::Codes::IOpPing) {
@@ -217,13 +220,13 @@ void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMe
         resp.parameters[ser::Codes::IKeyServerTimestamp] = static_cast<int32_t>(peer_->enet_peer->get_server_time());
         peer_->log->info("Got internal operation ping: TS={}", client_ts.get<int32_t>());
 
-        send(proto_.Serialize(resp));
+        send(proto_->Serialize(resp));
     } else {
         // Answer unknown operation
         const ser::OperationResponseMessage resp{.operation_code = req.operation_code,
                                                  .return_code = ErrorCodes::Core::OperationInvalid,
                                                  .debug_message = std::format("Unsupported internal operation {}", req.operation_code)};
-        send(proto_.Serialize(resp));
+        send(proto_->Serialize(resp));
         peer_->log->warn("Client sent internal operation request with unknown opcode: {}", req.operation_code);
     }
 }

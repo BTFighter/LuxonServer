@@ -18,8 +18,7 @@ class ServerManager;
 
 class HandlerBase {
 public:
-    HandlerBase(ServerManager& server_manager, std::shared_ptr<Peer> peer)
-        : server_manager_(server_manager), peer_(std::move(peer)), proto_(*peer_->protocol) {}
+    HandlerBase(ServerManager& server_manager, std::shared_ptr<Peer> peer) : server_manager_(server_manager), peer_(std::move(peer)), proto_(peer_->protocol) {}
     virtual ~HandlerBase();
 
     virtual void HandleConnect();
@@ -41,6 +40,6 @@ public:
 protected:
     ServerManager& server_manager_;
     std::shared_ptr<Peer> peer_;
-    ser::IProtocol& proto_;
+    std::unique_ptr<ser::IProtocol>& proto_;
 };
 } // namespace server

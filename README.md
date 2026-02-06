@@ -12,7 +12,6 @@ This entire project was pulled up in about two weeks, so while it is functional,
 
 ## Compatibility
 
-Currently, Luxon Server only supports **Binary Protocol Version 1.8**.\
 Most games using standard matchmaking logic (joining lobbies, creating rooms, random matching) should work immediately without modification to the game client or server configuration.\
 Chat opcodes aren't implemented yet.
 

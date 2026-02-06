@@ -1,10 +1,10 @@
 Content Warning
 + Works flawlessly
-- Tried to load plugin containing special event for player kicking
+- Tries to load plugin containing special event for player kicking
 
 Bomb Bots Arena
-- Fails to connect at first, tries protocol version 1.6
-- Tries to use unimplemented chat opcodes, then gives up
+- Tries to use unimplemented/stubbed chat opcodes
++ Freezes when beginning actual gameplay
 
 Controlled Death
 + Loads in game, plays fine with bots
