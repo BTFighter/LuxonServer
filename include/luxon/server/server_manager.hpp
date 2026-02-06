@@ -103,32 +103,80 @@ public:
 
     ServerManager(const std::string& config_file);
 
+    ///
+    /// \brief Runs server until stop() is called
+    ///
     void run();
+    ///
+    /// \brief Ticks once
+    /// \return True if the server should continue running, false if stop() was called
+    /// \note Non-blocking if polling is enabled
+    ///
     bool run_once();
+    ///
+    /// \brief Signals the server to stop running asap
+    /// \note It might take the server up to about 125 milliseconds to stop if polling is disabled
+    ///
     void stop() { running_ = false; }
 
+    ///
+    /// \brief Schedules a function to be called from main loop
+    /// \param delay_ms Delay in milliseconds
+    /// \param callback Function to be called
+    ///
     void add_scheduled_task(unsigned delay_ms, std::function<void()>&& callback) {
         unsigned target_time = startup_time_.get() + delay_ms;
         scheduled_tasks_.push({target_time, std::move(callback)});
     }
 
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
-    // Only callable on main thread inside of a coroutine
+    ///
+    /// \brief Calls the given function in a newly created thread
+    /// \param fn Function to call in new thread
+    /// \return True if thread creation was successful, otherwise false
+    /// \note Non-blocking; Can only be used from inside of a coroutine
+    ///
     bool call_in_new_thread(std::move_only_function<void()>&& fn);
+    ///
+    /// \brief Delays execution
+    /// \param milliseconds Amount of milliseconds until function returns
+    /// \note Non-blocking; Can only be used from inside of a coroutine
+    ///
     void delay(unsigned milliseconds);
 
-    // This is the only function that is safe to call from other threads
+    ///
+    /// \brief Enqueues a function to be called from main loop, on main thread
+    /// \param fn Function to be called
+    /// \note This function is thread-safe
+    ///
     void enqueue_in_main_loop(std::move_only_function<void()>&& fn) {
         std::scoped_lock L(main_loop_calls_mutex_);
         main_loop_calls_.emplace(std::move(fn));
     }
 #endif
 
+    ///
+    /// \brief Gets the external address of a random server of given type
+    /// \param server_type Type of server to request
+    /// \return External address of server, e.g. "127.0.0.1:5058"
+    ///
     const std::string& get_endpoint_of(ServerType server_type);
 
+    ///
+    /// \brief Gets a list of active connections to this instance
+    /// \return Linked list of handlers representing a connection
+    ///
     const std::list<HandlerPtr<HandlerBase>>& get_connections() { return connections_; }
 
+    ///
+    /// \brief Counts connections to servers on this instance of any type
+    /// \return Amount of connections
+    ///
     size_t get_connection_count() { return connections_.size(); }
+    ///
+    /// \brief Counts connections to servers on this instance with handler of or derived from given type
+    /// \return Amount of connections
+    ///
     template <class HandlerT> size_t get_connection_count() {
         size_t fres = 0;
         for (const auto& connection : connections_)
