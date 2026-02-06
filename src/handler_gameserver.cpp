@@ -139,6 +139,15 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 }
             });
 
+            // Make sure client isn't attempting to raise a Photon event
+            if (event.code > 220) {
+                const ser::OperationResponseMessage resp{.operation_code = OpCodes::Lite::RaiseEvent,
+                                                         .return_code = ErrorCodes::Core::OperationInvalid,
+                                                         .debug_message = "Not allowed to raise Photon events (codes higher than 220)"};
+                send(proto_.Serialize(resp), enet::EnetSendOptions{.channel = cmd_header.channel_id});
+                return;
+            }
+
             // RemoveFromRoomCache
             if (cache_op == CacheOperation::RemoveFromRoomCache) {
                 std::vector<int32_t> filter_senders;
