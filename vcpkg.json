@@ -1,0 +1,6 @@
+{
+  "dependencies": [
+    "mbedtls",
+    "ankurvdev-embedresource"
+  ]
+}
