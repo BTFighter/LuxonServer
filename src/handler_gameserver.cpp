@@ -94,7 +94,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 resp.parameters[DictKeyCodes::LoadBalancing::Position] = static_cast<int32_t>(0);
 
             // Send response
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp, true));
             return;
         }
         }

@@ -58,7 +58,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
                 resp.parameters[DictKeyCodes::LoadBalancing::Position] = static_cast<int32_t>(0);
 
             // Send response
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp, true));
 
             // Handle successful authentication
             if (peer_->is_authenticated()) {

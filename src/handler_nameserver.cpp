@@ -29,7 +29,7 @@ void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
             }
 
             // Send payload
-            send(proto_.Serialize(resp, false));
+            send(proto_.Serialize(resp, true));
             return;
         }
 
