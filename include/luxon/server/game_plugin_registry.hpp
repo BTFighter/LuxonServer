@@ -17,7 +17,7 @@ namespace registry {
 using PluginFactory = std::move_only_function<std::unique_ptr<PluginBase>(Game *)>;
 
 bool register_(const std::string& name, PluginFactory&& plugin_factory);
-std::unique_ptr<PluginBase> instanciate(Game *game, const std::string& name);
+std::unique_ptr<PluginBase> instantiate(Game *game, const std::string& name);
 
 } // namespace registry
 } // namespace game_plugins

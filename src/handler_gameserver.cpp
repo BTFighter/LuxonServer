@@ -243,11 +243,11 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 const auto& plugins = req.parameters[DictKeyCodes::RpcAndPlugins::Plugins].get_or<std::vector<std::string>>();
                 for (const std::string& plugin_name : plugins) {
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
-                auto plugin = game_plugins::registry::instanciate(get_game().get(), plugin_name);
-                if (!plugin) {
-                    peer_->log->warn("Attempting to load unknown game plugin: {}", plugin_name);
-                    continue;
-                }
+                    auto plugin = game_plugins::registry::instantiate(get_game().get(), plugin_name);
+                    if (!plugin) {
+                        peer_->log->warn("Attempting to load unknown game plugin: {}", plugin_name);
+                        continue;
+                    }
 
                 get_game()->plugins.emplace_back(std::move(plugin));
 #else

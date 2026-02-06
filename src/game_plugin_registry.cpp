@@ -18,7 +18,7 @@ bool register_(const std::string& name, PluginFactory&& plugin_factory) {
     return plugins->emplace(name, std::move(plugin_factory)).second;
 }
 
-std::unique_ptr<PluginBase> instanciate(Game *game, const std::string& name) {
+std::unique_ptr<PluginBase> instantiate(Game *game, const std::string& name) {
     auto res = plugins->find(name);
     if (res == plugins->end())
         return nullptr;
