@@ -54,6 +54,10 @@ target_compile_definitions(luxon_server PRIVATE
 )
 target_include_directories(luxon_server PRIVATE include/luxon/server PUBLIC include)
 
+if (MSVC)
+    target_compile_definitions(luxon_server PUBLIC NOMINMAX)
+endif()
+
 if (LUXON_SERVER_POLL)
     target_compile_definitions(luxon_server PRIVATE LUXON_SERVER_POLL)
 endif()
