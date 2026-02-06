@@ -32,6 +32,7 @@
 
 INCBIN(index_html, SOURCE_DIR "/index.html");
 INCBIN(stats_html, SOURCE_DIR "/stats.html");
+INCBIN(style_css, SOURCE_DIR "/style.css");
 
 using json = nlohmann::json;
 using namespace luxon::ser;
@@ -301,23 +302,27 @@ void HttpServer::handle_client_data(HttpClient& client) {
 
     const luxon::HttpRequest req = result.value();
     try {
-        std::string_view html_content;
+        std::string_view content, content_type = "text/html";
         if (req.method == "GET") {
-            if (req.path == "/")
-                html_content = {incbin_index_html_start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_index_html_end - incbin_index_html_start))};
-            else if (req.path == "/stats")
-                html_content = {incbin_stats_html_start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_stats_html_end - incbin_stats_html_start))};
+            if (req.path == "/") {
+                content = {incbin_index_html_start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_index_html_end - incbin_index_html_start))};
+            } else if (req.path == "/stats") {
+                content = {incbin_stats_html_start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_stats_html_end - incbin_stats_html_start))};
+            } else if (req.path == "/style.css") {
+                content = {incbin_style_css_start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_style_css_end - incbin_style_css_start))};
+                content_type = "text/css";
+            }
         }
 
-        if (html_content.empty()) {
+        if (content.empty()) {
             send_response(client, 200, route_request(req.method, req.path));
         } else {
             const std::string response = std::format("HTTP/1.1 200 OK\r\n"
-                                                     "Content-Type: text/html\r\n"
+                                                     "Content-Type: {}\r\n"
                                                      "Content-Length: {}\r\n"
                                                      "Connection: close\r\n"
                                                      "\r\n{}",
-                                                     html_content.size(), html_content);
+                                                     content_type, content.size(), content);
             queue_data(client, response, true);
         }
     } catch (const std::out_of_range& e) {

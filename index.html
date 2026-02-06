@@ -4,121 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Luxon Server Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 <style>
-:root {
-    --bg-body: #ffffff;
-    --bg-panel: #f8f9fa;
-    --bg-header: #eeeeee;
-    --text-main: #000000;
-    --text-muted: #555555;
-    --border-color: #cccccc;
-    --accent-color: #0055cc;
-    --accent-hover: #003399;
-    --state-success: #28a745;
-    --state-danger: #dc3545;
-    --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-[data-theme="dark"] {
-    --bg-body: #121212;
-    --bg-panel: #1e1e1e;
-    --bg-header: #2d2d2d;
-    --text-main: #e0e0e0;
-    --text-muted: #aaaaaa;
-    --border-color: #444444;
-    --accent-color: #64b5f6;
-    --accent-hover: #9be7ff;
-    --state-success: #81c784;
-    --state-danger: #e57373;
-}
-
-* { box-sizing: border-box; }
-
-body {
-    margin: 0;
-    font-family: var(--font-stack);
-    background-color: var(--bg-body);
-    color: var(--text-main);
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-/* Layout Utilities */
-header {
-    background-color: var(--bg-header);
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.5rem 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-h1 { font-size: 1.25rem; margin: 0; font-weight: bold; }
-h2 { font-size: 1.1rem; margin: 0; font-weight: bold; }
-h3 { font-size: 1rem; margin: 0; font-weight: bold; }
-
-/* Buttons & Inputs */
-button {
-    cursor: pointer;
-    padding: 4px 12px;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-panel);
-    color: var(--text-main);
-    font-family: inherit;
-    font-size: 0.9rem;
-}
-
-button:hover { background-color: var(--border-color); }
-
-button.primary {
-    background-color: var(--accent-color);
-    color: white;
-    border-color: var(--accent-hover);
-}
-[data-theme="dark"] button.primary { color: #121212; }
-
-button.primary:hover { opacity: 0.9; }
-
+/* Page Specific Overrides */
 input[type="text"] {
-    padding: 4px 8px;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-body);
-    color: var(--text-main);
     min-width: 250px;
 }
 
 /* Breadcrumbs */
 #breadcrumbs {
-    padding: 0.5rem 1rem;
-    background-color: var(--bg-body);
-    border-bottom: 1px solid var(--border-color);
+    padding: 0.8rem 2rem;
+    background-color: rgba(0,0,0,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
     font-size: 0.9rem;
 }
-.crumb { color: var(--accent-color); cursor: pointer; text-decoration: underline; }
-.crumb:last-child { color: var(--text-main); text-decoration: none; cursor: default; }
-.crumb-sep { margin: 0 5px; color: var(--text-muted); }
-
-/* Main Content */
-main { padding: 1rem; max-width: 100%; }
-
-/* Panels / Containers */
-.panel {
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-panel);
-    padding: 1rem;
-    margin-bottom: 1rem;
+.crumb {
+    color: var(--brand-green);
+    cursor: pointer;
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
 }
-
-.panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.controls { display: flex; gap: 5px; }
+.crumb:hover { border-bottom-color: var(--brand-green); }
+.crumb:last-child { color: var(--text-main); cursor: default; border: none; }
+.crumb-sep { margin: 0 8px; color: var(--text-muted); }
 
 /* Data Tables */
 .table-container { overflow-x: auto; width: 100%; }
@@ -128,77 +39,74 @@ table {
     font-size: 0.9rem;
 }
 th, td {
-    border: 1px solid var(--border-color);
-    padding: 6px 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 10px 14px;
     text-align: left;
 }
 th {
-    background-color: var(--bg-header);
+    background-color: rgba(0,0,0,0.2);
     font-weight: 600;
+    color: var(--brand-green);
     cursor: pointer;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
 }
-th:hover { text-decoration: underline; }
-tr:nth-child(even) { background-color: rgba(0,0,0,0.03); }
-[data-theme="dark"] tr:nth-child(even) { background-color: rgba(255,255,255,0.03); }
+th:hover { background-color: rgba(191, 255, 0, 0.05); }
+tr:nth-child(even) { background-color: rgba(255,255,255,0.02); }
+tr:hover { background-color: rgba(255,255,255,0.04); }
 
 /* Navigation Grid */
 .nav-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.5rem;
 }
 .nav-card {
-    border: 1px solid var(--border-color);
-    padding: 1rem;
-    background-color: var(--bg-body);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 1.5rem;
+    background-color: var(--input-bg);
     cursor: pointer;
+    border-radius: 8px;
+    transition: transform 0.2s, border-color 0.2s;
 }
 .nav-card:hover {
-    border-color: var(--accent-color);
-    outline: 1px solid var(--accent-color);
+    border-color: var(--brand-green);
+    transform: translateY(-2px);
 }
-.nav-card h3 { color: var(--accent-color); margin-bottom: 0.5rem; }
+.nav-card h3 { margin-bottom: 0.5rem; }
 .nav-card p { color: var(--text-muted); margin: 0; font-size: 0.85rem; }
 
 /* JSON Viewer */
 pre.json-dump {
-    background-color: var(--bg-header);
-    padding: 10px;
-    border: 1px solid var(--border-color);
+    background-color: var(--input-bg);
+    padding: 15px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
     overflow: auto;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 0.85rem;
+    color: #e6edf3;
 }
-
-/* Status Indicators */
-.status-dot {
-    height: 8px; width: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 6px;
-}
-.status-green { background-color: var(--state-success); }
-.status-red { background-color: var(--state-danger); }
 
 /* Loader */
 #loader {
     display: none;
-    background-color: #ffd700;
-    color: black;
-    padding: 5px 10px;
+    background-color: var(--brand-green);
+    color: var(--brand-navy-dark);
+    padding: 8px 16px;
     position: fixed;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    font-weight: bold;
-    border: 1px solid #000;
-    border-top: none;
+    font-weight: 800;
+    border-radius: 0 0 8px 8px;
     z-index: 999;
+    box-shadow: 0 0 20px var(--brand-green);
 }
 
 /* Utility to hide actor rows initially */
 tr[id^="actor-row-"] { display: none; }
-
 </style>
 </head>
 <body>
@@ -206,12 +114,11 @@ tr[id^="actor-row-"] { display: none; }
 <div id="loader">LOADING DATA...</div>
 
 <header>
-    <div style="display:flex; align-items:center; gap:10px;">
-        <div style="width:20px; height:20px; background-color: var(--accent-color);"></div>
-        <h1>Luxon Server Monitor</h1>
+    <div style="display:flex; align-items:center; gap:15px;">
+        <div style="width:24px; height:24px; background-color: var(--brand-green); border-radius: 2px; box-shadow: 0 0 10px var(--brand-green);"></div>
+        <h1>Luxon <span>Server Monitor</span></h1>
     </div>
     <div style="display:flex; gap:10px;">
-        <button onclick="toggleTheme()" id="theme-btn">Dark/Light</button>
         <button class="primary" onclick="app.refreshCurrentView()">Refresh</button>
     </div>
 </header>
@@ -226,11 +133,10 @@ tr[id^="actor-row-"] { display: none; }
 <script>
 /**
  * API SERVICE
- * Handles data fetching and error logic.
  */
 const api = {
-    baseUrl: window.location.origin, // Assumes served from same host
-    // baseUrl: 'http://localhost:8080', // Uncomment for local testing if different port
+    baseUrl: window.location.origin,
+    // baseUrl: 'http://localhost:8080',
 
     async get(endpoint) {
         document.getElementById('loader').style.display = 'block';
@@ -257,7 +163,7 @@ const api = {
 const app = {
     currentRoute: 'home',
     params: {},
-    dataCache: null, // Stores current view data for filtering/saving
+    dataCache: null,
 
     init() {
         this.navigate('home');
@@ -284,11 +190,8 @@ const app = {
                 html += `<span class="crumb">Global Connections</span>`;
             }
             else if (this.currentRoute.startsWith('app_') || this.currentRoute === 'lobby_games' || this.currentRoute === 'game_detail') {
-
-                // 1. App Dashboard Link
                 html += `<span class="crumb" onclick="app.navigate('app_dashboard', {app_id: '${this.params.app_id}'})">App: ${this.params.app_id}</span>`;
 
-                // 2. Specific Page Logic
                 if (this.currentRoute === 'app_connections') {
                     html += ` <span class="crumb-sep">/</span> <span class="crumb">Connections</span>`;
                 }
@@ -296,14 +199,11 @@ const app = {
                     html += ` <span class="crumb-sep">/</span> <span class="crumb">Lobbies</span>`;
                 }
                 else if (this.currentRoute === 'lobby_games' || this.currentRoute === 'game_detail') {
-                    // Link back to Lobbies
                     html += ` <span class="crumb-sep">/</span> <span class="crumb" onclick="app.navigate('app_lobbies', {app_id: '${this.params.app_id}'})">Lobbies</span>`;
 
-                    // Link back to specific Lobby Game List
                     if (this.currentRoute === 'lobby_games') {
                          html += ` <span class="crumb-sep">/</span> <span class="crumb">Lobby ${this.params.lobby_idx}</span>`;
                     } else {
-                         // If we are deep in Game Detail, this becomes a clickable link
                          html += ` <span class="crumb-sep">/</span> <span class="crumb" onclick="app.navigate('lobby_games', {app_id: '${this.params.app_id}', lobby_idx: ${this.params.lobby_idx}})">Lobby ${this.params.lobby_idx}</span>`;
                          html += ` <span class="crumb-sep">/</span> <span class="crumb">Game: ${decodeURIComponent(this.params.game_id)}</span>`;
                     }
@@ -316,30 +216,16 @@ const app = {
     async render() {
         this.updateBreadcrumbs();
         const main = document.getElementById('content');
-        main.innerHTML = ''; // Clear
+        main.innerHTML = '';
 
         switch (this.currentRoute) {
-            case 'home':
-                this.renderHome(main);
-                break;
-            case 'global_connections':
-                this.renderGlobalConnections(main);
-                break;
-            case 'app_dashboard':
-                this.renderAppDashboard(main);
-                break;
-            case 'app_connections':
-                this.renderAppConnections(main);
-                break;
-            case 'app_lobbies':
-                this.renderAppLobbies(main);
-                break;
-            case 'lobby_games':
-                this.renderLobbyGames(main);
-                break;
-            case 'game_detail':
-                this.renderGameDetail(main);
-                break;
+            case 'home': this.renderHome(main); break;
+            case 'global_connections': this.renderGlobalConnections(main); break;
+            case 'app_dashboard': this.renderAppDashboard(main); break;
+            case 'app_connections': this.renderAppConnections(main); break;
+            case 'app_lobbies': this.renderAppLobbies(main); break;
+            case 'lobby_games': this.renderLobbyGames(main); break;
+            case 'game_detail': this.renderGameDetail(main); break;
         }
     },
 
@@ -347,7 +233,6 @@ const app = {
 
     async renderHome(container) {
         const apps = await api.get('/apps') || [];
-
         let appsHtml = apps.map(a => `
             <div class="nav-card" onclick="app.navigate('app_dashboard', {app_id: '${a.id}'})">
                 <h3>${a.id}</h3>
@@ -363,7 +248,7 @@ const app = {
                     <button onclick="app.navigate('global_connections')">View All Connections</button>
                 </div>
                 <div class="nav-grid">
-                    ${appsHtml || '<p>No applications found.</p>'}
+                    ${appsHtml || '<p style="color:var(--text-muted)">No applications found.</p>'}
                 </div>
             </div>
         `;
@@ -372,8 +257,6 @@ const app = {
     async renderGlobalConnections(container) {
         const data = await api.get('/connections') || [];
         this.dataCache = data;
-
-        // Flatten data for table
         const tableData = data.map(c => ({
             Address: c.address,
             PeerID: c.peer_id,
@@ -383,20 +266,18 @@ const app = {
             User: c.auth?.user_id || '-',
             App: c.auth?.app_id || '-'
         }));
-
         this.renderTablePage(container, 'Global Connections', tableData, data);
     },
 
     async renderAppDashboard(container) {
         const appId = this.params.app_id;
         const details = await api.get(`/apps/${appId}`);
-
         if (!details) return;
 
         container.innerHTML = `
             <div class="panel">
                 <div class="panel-header">
-                    <h2>App: ${details.id} <span style="font-weight:normal; font-size:0.9rem;">(v${details.version})</span></h2>
+                    <h2>App: ${details.id} <span style="font-weight:normal; font-size:0.9rem; color:var(--text-muted);">(v${details.version})</span></h2>
                 </div>
                 <div class="nav-grid">
                     <div class="nav-card" onclick="app.navigate('app_connections', {app_id: '${appId}'})">
@@ -416,7 +297,6 @@ const app = {
         const appId = this.params.app_id;
         const data = await api.get(`/apps/${appId}/connections`) || [];
         this.dataCache = data;
-
         const tableData = data.map(c => ({
             PeerID: c.peer_id,
             User: c.user_id,
@@ -424,7 +304,6 @@ const app = {
             RTT: c.stats.rtt + 'ms',
             Out: c.stats.bytes_out + ' B'
         }));
-
         this.renderTablePage(container, `${appId} - Connections`, tableData, data);
     },
 
@@ -526,10 +405,8 @@ async renderLobbyGames(container) {
 
     async renderGameDetail(container) {
         const { app_id, lobby_idx, game_id } = this.params;
-
         const p1 = api.get(`/apps/${app_id}/lobbies/${lobby_idx}/games/${game_id}`);
         const p2 = api.get(`/apps/${app_id}/lobbies/${lobby_idx}/games/${game_id}/actors`);
-
         const [game, actors] = await Promise.all([p1, p2]);
         if (!game) return;
 
@@ -537,18 +414,18 @@ async renderLobbyGames(container) {
         const masterName = masterActor ? `${masterActor.user_id} (ID: ${game.master_client_id})` : game.master_client_id;
 
         container.innerHTML = `
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
                 <div class="panel">
                     <div class="panel-header"><h2>Game: ${game.id}</h2></div>
-                    <table style="margin-bottom:1rem;">
-                        <tr><td style="border:none; padding-left:0;"><strong>Master Client:</strong></td><td style="border:none;">${masterName}</td></tr>
-                        <tr><td style="border:none; padding-left:0;"><strong>Player TTL:</strong></td><td style="border:none;">${game.player_ttl}ms</td></tr>
-                        <tr><td style="border:none; padding-left:0;"><strong>Empty TTL:</strong></td><td style="border:none;">${game.empty_room_ttl}ms</td></tr>
-                        <tr><td style="border:none; padding-left:0;"><strong>Flags:</strong></td><td style="border:none;">${game.flags}</td></tr>
+                    <table style="margin-bottom:1rem; background:transparent;">
+                        <tr><td style="border:none; padding-left:0; color:var(--brand-green);"><strong>Master Client:</strong></td><td style="border:none;">${masterName}</td></tr>
+                        <tr><td style="border:none; padding-left:0; color:var(--brand-green);"><strong>Player TTL:</strong></td><td style="border:none;">${game.player_ttl}ms</td></tr>
+                        <tr><td style="border:none; padding-left:0; color:var(--brand-green);"><strong>Empty TTL:</strong></td><td style="border:none;">${game.empty_room_ttl}ms</td></tr>
+                        <tr><td style="border:none; padding-left:0; color:var(--brand-green);"><strong>Flags:</strong></td><td style="border:none;">${game.flags}</td></tr>
                     </table>
 
-                    <h3 style="margin-top:1rem; border-bottom:1px solid var(--border-color);">Properties</h3>
-                    <pre class="json-dump">${JSON.stringify(game.full_props, null, 2)}</pre>
+                    <h3 style="margin-top:1rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">Properties</h3>
+                    <pre class="json-dump" style="margin-top:10px;">${JSON.stringify(game.full_props, null, 2)}</pre>
                 </div>
 
                 <div class="panel">
@@ -556,9 +433,9 @@ async renderLobbyGames(container) {
                     <div class="table-container" style="max-height: 400px; overflow-y:auto;">
                         <table style="width:100%;">
                             <thead>
-                                <th style="position:sticky; top:0;">ID</th>
-                                <th style="position:sticky; top:0;">User</th>
-                                <th style="position:sticky; top:0;">Action</th>
+                                <th style="position:sticky; top:0; background-color:#0d1117;">ID</th>
+                                <th style="position:sticky; top:0; background-color:#0d1117;">User</th>
+                                <th style="position:sticky; top:0; background-color:#0d1117;">Action</th>
                             </thead>
                             <tbody>
                                 ${actors ? actors.map(a => `
@@ -572,8 +449,8 @@ async renderLobbyGames(container) {
                                         </td>
                                     </tr>
                                     <tr id="actor-row-${a.actor_id}">
-                                        <td colspan="3" style="padding:0;">
-                                            <div id="actor-detail-${a.actor_id}" style="padding:10px; border-bottom:1px solid var(--border-color); background: rgba(0,0,0,0.02);">Loading...</div>
+                                        <td colspan="3" style="padding:0; border:none;">
+                                            <div id="actor-detail-${a.actor_id}" style="padding:15px; border-bottom:1px solid var(--border-color); background: rgba(0,0,0,0.3); border-left: 2px solid var(--brand-green);">Loading...</div>
                                         </td>
                                     </tr>
                                 `).join('') : '<tr><td colspan="3">No actors</td></tr>'}
@@ -590,7 +467,7 @@ async renderLobbyGames(container) {
             container.innerHTML = `
                 <div class="panel">
                     <div class="panel-header"><h2>${title}</h2></div>
-                    <p>No data available.</p>
+                    <p style="color:var(--text-muted)">No data available.</p>
                 </div>`;
             return;
         }
@@ -635,13 +512,10 @@ async renderLobbyGames(container) {
  */
 const ui = {
     sortAsc: true,
-
     sortTable(colIndex) {
         const table = document.getElementById("dataTable");
         const tbody = table.querySelector("tbody");
         const rows = Array.from(tbody.querySelectorAll("tr"));
-
-        // Exclude detail rows if they exist
         const dataRows = rows.filter(r => !r.id || !r.id.startsWith('actor-row'));
 
         this.sortAsc = !this.sortAsc;
@@ -657,9 +531,6 @@ const ui = {
             }
             return this.sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         });
-
-        // If there are detail rows, this sort will break the association, but for this simplified view, it's acceptable.
-        // A full fix would require grouping trs. For now, we append sorted rows.
         tbody.append(...dataRows);
     },
 
@@ -722,40 +593,23 @@ const ui = {
         container.innerHTML = `
             <div style="display:flex; flex-wrap:wrap; gap:2rem;">
                 <div style="flex:1;">
-                    <strong>Properties:</strong>
+                    <strong style="color:var(--brand-green);">Properties:</strong>
                     <pre class="json-dump" style="margin-top:5px;">${JSON.stringify(data.props, null, 2)}</pre>
                 </div>
                 <div style="flex:1;">
-                    <strong>Connection:</strong>
+                    <strong style="color:var(--brand-green);">Connection:</strong>
                     <ul style="padding-left:1.2rem; margin-top:5px;">
                         <li>Peer ID: ${data.connection_info.peer_id}</li>
                         <li>RTT: ${data.connection_info.rtt}ms</li>
                     </ul>
-                    <strong>Groups:</strong> [${data.interest_groups.join(', ')}]
+                    <strong style="color:var(--brand-green);">Groups:</strong> [${data.interest_groups.join(', ')}]
                 </div>
             </div>
         `;
     }
 };
 
-// Theme Toggler
-function toggleTheme() {
-    const body = document.body;
-    if (body.getAttribute('data-theme') === 'dark') {
-        body.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-    } else {
-        body.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-    }
-}
-
-// Init Theme
-if (localStorage.getItem('theme') === 'dark') {
-    toggleTheme();
-}
-
-// Initialize App
+// App Init
 app.init();
 
 </script>
