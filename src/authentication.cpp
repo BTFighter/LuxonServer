@@ -26,7 +26,7 @@ std::string generate_user_id() {
 } // namespace
 
 ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& peer, const ser::OperationRequestMessage& req,
-                                       const enet::EnetCommandHeader& cmd_header, bool refresh_token) {
+                                           const enet::EnetCommandHeader& cmd_header, bool refresh_token) {
     // Decide on algorithm
     const bool token_auth = req.parameters.contains(DictKeyCodes::LoadBalancing::Token);
 
