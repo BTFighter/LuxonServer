@@ -185,9 +185,20 @@
     async function getNextDataPoint(source, metric, duration) {
         if (source === 'load') {
             try {
+                // Default behavior: busy and idle use the same metric (e.g., avg)
+                let busyMetric = metric;
+                let idleMetric = metric;
+
+                // Invert the idle metric for min/max load calculations
+                if (metric === 'min') {
+                    idleMetric = 'max'; // Minimize Load: Low Busy + High Idle
+                } else if (metric === 'max') {
+                    idleMetric = 'min'; // Maximize Load: High Busy + Low Idle
+                }
+
                 const [busy, idle] = await Promise.all([
-                    fetchFromEndpoint('busy_time', metric, duration),
-                    fetchFromEndpoint('idle_time', metric, duration)
+                    fetchFromEndpoint('busy_time', busyMetric, duration),
+                    fetchFromEndpoint('idle_time', idleMetric, duration)
                 ]);
 
                 if (busy === null || idle === null) return null;
