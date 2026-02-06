@@ -74,6 +74,7 @@ public:
     PluginBase(Game *game, std::string_view plugin_name);
     virtual ~PluginBase() {}
 
+    virtual void OnAttach() {}
     virtual Result OnCreateGame(luxon::ser::OperationRequestMessage& req, OnCreateGameCallInfo&) { return Result::Continue; }
     virtual Result BeforeJoin(luxon::ser::OperationRequestMessage& req, BeforeJoinGameCallInfo&) { return Result::Continue; }
     virtual Result OnJoinGame(luxon::ser::OperationRequestMessage& req, OnJoinGameCallInfo&) { return Result::Continue; }

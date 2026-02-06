@@ -249,7 +249,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                         continue;
                     }
 
-                get_game()->plugins.emplace_back(std::move(plugin));
+                    get_game()->plugins.emplace_back(std::move(plugin))->OnAttach();
 #else
                 peer_->log->warn("Attempting to load game plugin when plugins are disabled: {}", plugin_name);
 #endif

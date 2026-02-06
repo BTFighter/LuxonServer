@@ -14,6 +14,9 @@
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
 #include "http_server.hpp"
 #endif
+#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#include "sidethread.hpp"
+#endif
 
 #include <string>
 #include <vector>
@@ -130,6 +133,13 @@ public:
     }
 
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
+    ///
+    /// \brief Enqueues the given function in a side thread
+    /// \param fn Function to call in thread
+    /// \return True if enqueue was successful and given function didn't throw, otherwise false
+    /// \note Non-blocking; Can only be used from inside of a coroutine
+    ///
+    bool call_in_side_thread(const SideThreadPtr& side_thread, std::move_only_function<void()>&& fn);
     ///
     /// \brief Calls the given function in a newly created thread
     /// \param fn Function to call in new thread

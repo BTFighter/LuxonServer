@@ -233,6 +233,35 @@ ServerManager::ServerManager(const std::string& config_file) {
 }
 
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
+bool ServerManager::call_in_side_thread(const SideThreadPtr& side_thread, std::move_only_function<void()>&& fn) {
+    if (!side_thread)
+        return false;
+
+    auto *coro = minicoro::Coroutine::current();
+    if (!coro)
+        return false;
+
+    bool ok = false;
+    side_thread->enqueue([&, this] {
+        try {
+            fn();
+            ok = true;
+        } catch (const std::exception& e) {
+            log_->error("Unhandled exception in side thread: {}: {}", typeid(e).name(), e.what());
+        } catch (...) {
+            log_->error("Unknown unhandled exception in side thread!");
+        }
+
+        enqueue_in_main_loop([coro, this] {
+            if (!coro->resume())
+                log_->error("Failed to resume coroutine from side thread!");
+        });
+    });
+
+    coro->yield();
+    return ok;
+}
+
 bool ServerManager::call_in_new_thread(std::move_only_function<void()>&& fn) {
     auto *coro = minicoro::Coroutine::current();
     if (!coro)

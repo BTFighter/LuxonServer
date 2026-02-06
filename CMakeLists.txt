@@ -89,6 +89,7 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
         include/luxon/server/coroutine.hpp src/coroutine.cpp
         include/luxon/server/game_plugin_base.hpp src/game_plugin_base.cpp
         include/luxon/server/game_plugin_registry.hpp src/game_plugin_registry.cpp
+        include/luxon/server/sidethread.hpp
     )
     target_compile_definitions(luxon_server PRIVATE LUXON_SERVER_ENABLE_PLUGINS)
 endif()
