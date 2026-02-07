@@ -1,9 +1,3 @@
-[submodule "sanmake"]
-	path = sanmake
-	url = https://gitlab.com/niansa/sanmake.git
-[submodule "commoncpp"]
-	path = commoncpp
-	url = https://gitlab.com/niansa/commoncpp.git
 [submodule "Luxon"]
 	path = Luxon
 	url = https://gitlab.com/luxon_project/Luxon.git

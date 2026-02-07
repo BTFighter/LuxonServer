@@ -9,6 +9,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(cmake/CPM.cmake)
+
 option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
 option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of game plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
@@ -37,7 +39,7 @@ endif()
 if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
     add_subdirectory(Luxon)
 
-    add_subdirectory(sanmake)
+    CPMAddPackage("gl:niansa/sanmake@1.0")
 else()
     set(LUXON_USE_TOMCRYPT ON CACHE BOOL "Force use of libtomcrypt" FORCE)
 
@@ -45,7 +47,7 @@ else()
     add_library(sanmake INTERFACE)
 endif()
 
-add_subdirectory(commoncpp)
+CPMAddPackage("gl:niansa/commoncpp@1.0")
 
 add_executable(luxon_server
     include/luxon/server/apps.hpp  include/luxon/server/global.hpp    include/luxon/server/logger.hpp  src/apps.cpp src/handler_gameserver.cpp    src/lobby.cpp src/platform.cpp
