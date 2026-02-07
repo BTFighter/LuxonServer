@@ -78,6 +78,6 @@ private:
 
     // Data helpers
     std::shared_ptr<App> find_app_by_id(std::string_view app_id);
-    Lobby *find_lobby_by_index(App *app, std::string_view index_str);
+    Lobby *find_lobby_by_name(App *app, std::string_view index_str);
 };
 } // namespace server

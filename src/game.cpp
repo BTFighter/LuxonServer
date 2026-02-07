@@ -117,7 +117,7 @@ restart:
     if (peers.empty()) {
         // Lobby is empty now, use a scheduled tasks to stay alive for at least empty_game_ttl milliseconds
         if (empty_game_ttl > 0)
-            app->server_manager.add_scheduled_task(empty_game_ttl, [game = shared_from_this()]() {});
+            lobby->app->server_manager.add_scheduled_task(empty_game_ttl, [game = shared_from_this()]() {});
 
         // Call into plugins
         GAME_PLUGINS_INVOKE({
@@ -272,7 +272,7 @@ int16_t Game::validate_join(const std::string& user_id, size_t new_expected_user
 
 void Game::trigger_lobby_update() {
     auto shared_this = shared_from_this();
-    for (auto& handler : lobby.game_list_update_handlers)
+    for (auto& handler : lobby->game_list_update_handlers)
         handler.game_change(shared_this);
 }
 

@@ -20,18 +20,32 @@ class MasterServerHandler : public HandlerBase {
 public:
     using HandlerBase::HandlerBase;
 
-    void HandleDisconnect() override;
     void HandleSlowUpdate() override;
     void HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) override;
 
 protected:
-    Lobby *lobby_;
+    struct JoinedLobby {
+        std::shared_ptr<Lobby> lobby;
+        std::list<GameListUpdateHandler>::iterator game_list_update_handler;
+
+        JoinedLobby(std::shared_ptr<Lobby>, GameListUpdateHandler&&);
+        ~JoinedLobby();
+
+        bool operator==(const std::shared_ptr<Lobby>& o) const { return lobby == o; }
+
+        JoinedLobby(const JoinedLobby&) = delete;
+        JoinedLobby(JoinedLobby&&) = delete;
+        JoinedLobby& operator=(const JoinedLobby&) = delete;
+        JoinedLobby& operator=(JoinedLobby&&) = delete;
+    };
+
+    std::list<JoinedLobby> lobbies_;
     common::Timer last_app_stats_;
     bool wants_app_stats_ = false;
-    std::optional<std::list<GameListUpdateHandler>::iterator> game_list_update_handler_;
 
-    void join_lobby(Lobby *lobby);
-    void leave_lobby();
+    JoinedLobby& join_lobby(std::shared_ptr<Lobby> lobby);
+    bool leave_lobby(Lobby& lobby);
+    void leave_lobby() { lobbies_.clear(); }
     void send_app_stats();
     ser::Dictionary get_lobby_stats(std::function<bool(const Lobby&)> lobby_filter = nullptr);
     void send_lobby_stats();

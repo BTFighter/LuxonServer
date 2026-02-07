@@ -11,13 +11,13 @@ std::shared_ptr<Game> Lobby::create_game(std::string id, bool or_get) {
     if (res != games.end())
         return or_get ? res->second.lock() : nullptr;
 
-    std::shared_ptr<Game> fres(new Game(app.get_shared(), *this, std::move(id)), [](Game *ptr) {
+    std::shared_ptr<Game> fres(new Game(shared_from_this(), std::move(id)), [](Game *ptr) {
         auto& lobby = ptr->lobby;
 
-        for (auto& handler : lobby.game_list_update_handlers)
+        for (auto& handler : lobby->game_list_update_handlers)
             handler.game_delete(ptr);
 
-        auto& games = lobby.games;
+        auto& games = lobby->games;
         auto res = games.find(ptr->id);
         if (res != games.end())
             games.erase(res);

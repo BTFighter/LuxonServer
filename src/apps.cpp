@@ -10,29 +10,21 @@
 #include <utility>
 
 namespace server {
-App::App(ServerManager& server_manager, std::string_view id, std::string_view version)
-    : server_manager(server_manager), id(id), version(version), lobbies_(1, {*this}) {}
+App::App(ServerManager& server_manager, std::string_view id, std::string_view version) : server_manager(server_manager), id(id), version(version) {}
 
-Lobby *App::get_default_lobby() {
-    if (lobbies_.size() == 1)
-        return &lobbies_[0];
-    for (Lobby& lobby : lobbies_)
-        if (lobby.name.empty())
-            return &lobby;
-    return nullptr;
-}
+std::shared_ptr<Lobby> App::get_lobby(std::string_view name) {
+    // Try to find lobby first
+    auto res = lobbies_.find(name);
+    if (res != lobbies_.end())
+        if (auto lobby = res->second.lock())
+            return lobby;
 
-std::vector<Lobby *> App::get_lobbies() {
-    std::vector<Lobby *> fres;
-    for (Lobby& lobby : lobbies_)
-        fres.push_back(&lobby);
-    return fres;
-}
-
-std::vector<const Lobby *> App::get_lobbies() const {
-    std::vector<const Lobby *> fres;
-    for (const Lobby& lobby : lobbies_)
-        fres.push_back(&lobby);
+    // Create lobby
+    std::shared_ptr<Lobby> fres(new Lobby(get_shared(), std::string(name)), [this](Lobby *ptr) {
+        lobbies_.erase(ptr->name);
+        delete ptr;
+    });
+    lobbies_[fres->name] = fres;
     return fres;
 }
 

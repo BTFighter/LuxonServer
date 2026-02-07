@@ -21,10 +21,12 @@ struct GameListUpdateHandler {
     std::function<void(Game *)> game_delete;
 };
 
-struct Lobby {
-    App& app;
+struct Lobby : std::enable_shared_from_this<Lobby> {
+    Lobby(std::shared_ptr<App> app, std::string name) : app(std::move(app)), name(std::move(name)) {}
+
+    const std::shared_ptr<App> app;
     const std::string name;
-    const uint8_t type = 0;
+    constexpr static uint8_t type = 0; // Something for the future
 
     std::unordered_map<std::string_view, std::weak_ptr<Game>> games;
     std::list<GameListUpdateHandler> game_list_update_handlers;
