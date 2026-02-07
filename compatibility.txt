@@ -4,7 +4,7 @@ Content Warning
 
 Bomb Bots Arena
 - Tries to use unimplemented/stubbed chat opcodes
-+ Freezes when beginning actual gameplay
+- Freezes when beginning actual gameplay
 
 Controlled Death
 + Loads in game, plays fine with bots
