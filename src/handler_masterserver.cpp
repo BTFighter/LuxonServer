@@ -297,7 +297,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
 
             send(proto_->Serialize(resp));
-            peer_->log->info("Joining {} game: {}", game->id, is_new ? "newly created" : "existing");
+            peer_->log->info("Joining {} game: {}", is_new ? "newly created" : "existing", game->id);
             return;
         }
 
