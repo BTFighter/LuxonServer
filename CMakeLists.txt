@@ -47,7 +47,7 @@ else()
     add_library(sanmake INTERFACE)
 endif()
 
-CPMAddPackage("gl:niansa/commoncpp@1.0")
+CPMAddPackage("gl:niansa/commoncpp@1.1")
 
 add_executable(luxon_server
     include/luxon/server/apps.hpp  include/luxon/server/global.hpp    include/luxon/server/logger.hpp  src/apps.cpp src/handler_gameserver.cpp    src/lobby.cpp src/platform.cpp
