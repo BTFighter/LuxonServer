@@ -543,7 +543,7 @@ ser::HashtablePtr MasterServerHandler::get_game_list(std::function<bool(const Lo
         if (game_filter && !game_filter(*game))
             continue;
 
-        (*fres)[std::string(name)] = std::make_shared<ser::Hashtable>(game->get_basic_game_props());
+        (*fres)[std::string(name)] = std::make_shared<ser::Hashtable>(game->get_lobby_game_props());
     }
 
     return fres;

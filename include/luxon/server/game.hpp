@@ -152,7 +152,7 @@ struct Game : std::enable_shared_from_this<Game> {
     /// \brief Gets all well-known game properties that are to be shown in lobby
     /// \return Hashtable with well-known keys/value property pairs
     ///
-    ser::Hashtable get_basic_game_props();
+    ser::Hashtable get_lobby_game_props();
     ///
     /// \brief Gets all game properties
     /// \param no_custom Excludes custom properties

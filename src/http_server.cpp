@@ -527,7 +527,7 @@ json HttpServer::route_request(std::string_view method, std::string path) {
                                        {"max_players", g->max_peers},
                                        {"is_open", g->is_open},
                                        {"is_visible", g->is_visible},
-                                       {"basic_props", json_conv::photon_hash_to_json(g->get_basic_game_props())}});
+                                       {"lobby_props", json_conv::photon_hash_to_json(g->get_lobby_game_props())}});
                     }
                 }
                 return res;

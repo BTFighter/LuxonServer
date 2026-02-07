@@ -310,11 +310,12 @@ ser::Value Game::get_game_prop(const ser::Value& key) {
     return res->second;
 }
 
-ser::Hashtable Game::get_basic_game_props() {
+ser::Hashtable Game::get_lobby_game_props() {
     ser::Hashtable fres;
     fres[GameProps::PlayerCount] = static_cast<uint8_t>(peers.size());
     fres[GameProps::IsOpen] = is_open;
     fres[GameProps::MaxPlayers] = max_peers;
+    fres[GameProps::LobbyProperties] = lobby_props;
     return fres;
 }
 
