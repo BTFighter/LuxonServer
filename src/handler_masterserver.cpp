@@ -48,7 +48,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
         case OpCodes::Auth::Authenticate:
         case OpCodes::Auth::AuthenticateOnce: {
             // Does the client want lobby stats?
-            const bool wants_lobby_stats = req.parameters[DictKeyCodes::AuthAndLobby::LobbyStats].get_or<bool>(false);
+            const bool wants_lobby_stats = req.parameters[DictKeyCodes::AuthAndLobby::LobbyStats].get_or<bool>(true);
 
             // Try to authenticate
             auto resp = authenticate(server_manager_, *peer_, req, cmd_header);
