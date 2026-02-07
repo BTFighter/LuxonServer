@@ -24,6 +24,8 @@ public:
     SideThread(const SideThread&) = delete;
     SideThread(SideThread&&) = delete;
 
+    bool busy() const { return common::PooledThread::busy(); }
+
     static inline SideThreadPtr create() { return std::shared_ptr<SideThread>(new SideThread); }
 };
 } // namespace server
