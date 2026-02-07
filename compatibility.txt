@@ -22,6 +22,9 @@ Paint Warfare
 Phasmophobia
 + Works flawlessly
 
+R.E.P.O.
++ Loads in game
+
 Super Animal Royale:
 + Loads in game
 - Multiplayer broken because of unimplemented chat opcodes
