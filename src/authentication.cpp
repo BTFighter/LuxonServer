@@ -39,7 +39,8 @@ ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& 
             // Regular mechanism (very simple for now)
             auto& p = peer.persistent = create_persistent_peer();
             p->app = App::get(server_manager, req.parameters.at(DictKeyCodes::LoadBalancing::ApplicationId).get<std::string>(),
-                              req.parameters.at(DictKeyCodes::LoadBalancing::AppVersion).get<std::string>());
+                              req.parameters.at(DictKeyCodes::LoadBalancing::AppVersion)
+                                  .get_or<std::string>("(null app version not really supported, but Photon accepts it, so we try to emulate it)"));
             if (req.parameters.contains(DictKeyCodes::LoadBalancing::UserId))
                 p->user_id = req.parameters.at(DictKeyCodes::LoadBalancing::UserId).get<std::string>();
             else
