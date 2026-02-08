@@ -9,7 +9,6 @@
 #include <unordered_set>
 #include <functional>
 #include <optional>
-#include <list>
 #include <commoncpp/timer.hpp>
 #include <luxon/ser_types.hpp>
 
@@ -39,16 +38,20 @@ protected:
         JoinedLobby& operator=(JoinedLobby&&) = delete;
     };
 
-    std::list<JoinedLobby> lobbies_;
+    std::optional<JoinedLobby> joined_lobby_;
     common::Timer last_app_stats_;
     bool wants_app_stats_ = false;
 
-    JoinedLobby& join_lobby(std::shared_ptr<Lobby> lobby);
-    bool leave_lobby(Lobby& lobby);
-    void leave_lobby() { lobbies_.clear(); }
+    std::shared_ptr<Lobby> get_requested_lobby(const ser::OperationRequestMessage& req);
+
+    void join_lobby(std::shared_ptr<Lobby> lobby);
+    void leave_lobby() { joined_lobby_.reset(); }
+    std::string_view get_joined_lobby_name() const { return joined_lobby_.has_value() ? joined_lobby_->lobby->name : std::string_view{}; }
+
     void send_app_stats();
     ser::Dictionary get_lobby_stats(std::function<bool(const Lobby&)> lobby_filter = nullptr);
     void send_lobby_stats();
+
     ser::HashtablePtr get_game_list(std::function<bool(const Lobby&)> lobby_filter = nullptr, std::function<bool(const Game&)> game_filter = nullptr);
     ser::HashtablePtr get_game_list(std::function<bool(const Game&)> game_filter) { return get_game_list(nullptr, game_filter); }
     void send_game_list();
