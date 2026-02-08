@@ -144,9 +144,9 @@ bool Game::flood_peer(GamePeer *game_peer) {
 
             // Serialize event
             ser::EventMessage event_data{.event_code = event.code, .parameters = event.top_params};
-            if (event.sender_actor_id)
-                event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
-            event_data.parameters[DictKeyCodes::RoutingAndEvents::Data] = event.data;
+            event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
+            if (!event.data.is_null())
+                event_data.parameters[DictKeyCodes::RoutingAndEvents::Data] = event.data;
 
             // Cached events are re-sent as if they were fresh to the joining player
             const auto expected_event_payload = peer->protocol->Serialize(event_data, false);
@@ -174,8 +174,7 @@ GamePeer *Game::find_peer(int32_t actor_id) {
 void Game::broadcast_event(Event& event) {
     // Serialize event once if not cached
     ser::EventMessage event_data{.event_code = event.code, .parameters = std::move(event.top_params)};
-    if (event.sender_actor_id)
-        event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
+    event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
     if (!event.data.is_null())
         event_data.parameters[DictKeyCodes::RoutingAndEvents::Data] = std::move(event.data);
 
