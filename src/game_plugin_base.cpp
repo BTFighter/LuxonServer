@@ -9,8 +9,9 @@
 
 namespace server::game_plugins {
 PluginBase::PluginBase(Game *game, std::string_view plugin_name) : game_(game) {
-    log_ = create_logger(std::format("Game Plugin {} (at {}:{}/{}/{})", plugin_name, game->app->id, game->app->version, game->lobby.name, game->id));
+    log_ = create_logger(
+        std::format("Game Plugin {} (at {}:{}/{}/{})", plugin_name, game->lobby->app->id, game->lobby->app->version, game->lobby->name, game->id));
 }
 
-ServerManager& PluginBase::get_server_manager() { return game_->app->server_manager; }
+ServerManager& PluginBase::get_server_manager() { return game_->lobby->app->server_manager; }
 } // namespace server::game_plugins

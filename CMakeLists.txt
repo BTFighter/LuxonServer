@@ -68,7 +68,7 @@ add_executable(luxon_server
     include/luxon/server/authentication.hpp  include/luxon/server/handler_base.hpp    include/luxon/server/metrics.hpp  src/authentication.cpp src/handler_masterserver.cpp  src/logger.cpp src/platform.hpp
     include/luxon/server/handler_gameserver.hpp    include/luxon/server/peer.hpp  src/handler_nameserver.cpp    src/main.cpp src/server_manager.cpp
     include/luxon/server/handler_masterserver.hpp  include/luxon/server/peer_persistence.hpp  src/game.cpp    src/metrics.cpp src/sock_selector.cpp
-    include/luxon/server/game.hpp  include/luxon/server/handler_nameserver.hpp    include/luxon/server/server_manager.hpp src/incbin.h      src/minicoro.h src/yaml.cpp
+    include/luxon/server/game.hpp  include/luxon/server/handler_nameserver.hpp    include/luxon/server/server_manager.hpp src/incbin.h       src/yaml.cpp
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp
     include/luxon/server/lobby.hpp    include/luxon/server/string_hash.hpp  src/handler_base.cpp src/json.hpp      src/peer_persistence.cpp
 )
@@ -103,12 +103,14 @@ if (LUXON_SERVER_ENABLE_WEBSERVER)
 endif()
 
 if (LUXON_SERVER_ENABLE_PLUGINS)
+    CPMAddPackage("gl:niansa/minicoropp@1.0")
+
     target_sources(luxon_server PRIVATE
-        include/luxon/server/coroutine.hpp src/coroutine.cpp
         include/luxon/server/game_plugin_base.hpp src/game_plugin_base.cpp
         include/luxon/server/game_plugin_registry.hpp src/game_plugin_registry.cpp
         include/luxon/server/sidethread.hpp
     )
+    target_link_libraries(luxon_server minicoropp)
     target_compile_definitions(luxon_server PRIVATE LUXON_SERVER_ENABLE_PLUGINS)
 endif()
 

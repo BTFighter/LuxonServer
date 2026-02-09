@@ -44,9 +44,6 @@
 #include "platform.hpp"
 #include "peer.hpp"
 #include "logger.hpp"
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
-#include "coroutine.hpp"
-#endif
 #include "handler_nameserver.hpp"
 #include "handler_masterserver.hpp"
 #include "handler_gameserver.hpp"
@@ -58,12 +55,13 @@
 #include <sstream>
 #include <format>
 #include <random>
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
-#include <thread>
-#endif
 #include <exception>
 #include <stdexcept>
 #include <algorithm>
+#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#include <thread>
+#include <minicoropp.hpp>
+#endif
 #include <luxon/ser_gp_binary_v18.hpp>
 #include <luxon/ser_encryption.hpp>
 #include <luxon/visualizer.hpp>
