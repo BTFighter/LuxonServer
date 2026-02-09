@@ -66,7 +66,7 @@ CPMAddPackage("gl:niansa/commoncpp@1.1")
 add_executable(luxon_server
     include/luxon/server/apps.hpp  include/luxon/server/global.hpp    include/luxon/server/logger.hpp  src/apps.cpp src/handler_gameserver.cpp    src/lobby.cpp src/platform.cpp
     include/luxon/server/authentication.hpp  include/luxon/server/handler_base.hpp    include/luxon/server/metrics.hpp  src/authentication.cpp src/handler_masterserver.cpp  src/logger.cpp src/platform.hpp
-    include/luxon/server/codes.hpp  include/luxon/server/handler_gameserver.hpp    include/luxon/server/peer.hpp  src/handler_nameserver.cpp    src/main.cpp src/server_manager.cpp
+    include/luxon/server/handler_gameserver.hpp    include/luxon/server/peer.hpp  src/handler_nameserver.cpp    src/main.cpp src/server_manager.cpp
     include/luxon/server/handler_masterserver.hpp  include/luxon/server/peer_persistence.hpp  src/game.cpp    src/metrics.cpp src/sock_selector.cpp
     include/luxon/server/game.hpp  include/luxon/server/handler_nameserver.hpp    include/luxon/server/server_manager.hpp src/incbin.h      src/minicoro.h src/yaml.cpp
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp

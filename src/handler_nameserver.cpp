@@ -5,9 +5,9 @@
 #include "global.hpp"
 #include "server_manager.hpp"
 #include "authentication.hpp"
-#include "codes.hpp"
 
 #include <luxon/ser_interface.hpp>
+#include <luxon/common_codes.hpp>
 
 namespace server {
 void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {

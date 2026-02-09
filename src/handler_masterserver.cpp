@@ -6,13 +6,13 @@
 #include "handler_gameserver.hpp"
 #include "server_manager.hpp"
 #include "authentication.hpp"
-#include "codes.hpp"
 #include "lobby.hpp"
 
 #include <string>
 #include <random>
 #include <algorithm>
 #include <luxon/ser_interface.hpp>
+#include <luxon/common_codes.hpp>
 
 namespace server {
 namespace {

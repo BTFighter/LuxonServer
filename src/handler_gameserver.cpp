@@ -8,11 +8,11 @@
 #include "game_plugin_base.hpp"
 #endif
 #include "global.hpp"
-#include "codes.hpp"
 #include "authentication.hpp"
 
 #include <ranges>
 #include <luxon/ser_interface.hpp>
+#include <luxon/common_codes.hpp>
 
 namespace server {
 void GameServerHandler::HandleDisconnect() {

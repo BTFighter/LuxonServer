@@ -4,9 +4,9 @@
 #include "game.hpp"
 #include "global.hpp"
 #include "server_manager.hpp"
-#include "codes.hpp"
 
 #include <luxon/ser_interface.hpp>
+#include <luxon/common_codes.hpp>
 
 namespace server {
 bool GamePeer::has_interest_group(uint8_t group) const {

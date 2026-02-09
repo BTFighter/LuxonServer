@@ -3,7 +3,6 @@
 
 #include "authentication.hpp"
 #include "global.hpp"
-#include "codes.hpp"
 #include "peer.hpp"
 #include "peer_persistence.hpp"
 #include "apps.hpp"
@@ -11,6 +10,7 @@
 #include <algorithm>
 #include <random>
 #include <luxon/ser_interface.hpp>
+#include <luxon/common_codes.hpp>
 
 namespace server {
 namespace {
