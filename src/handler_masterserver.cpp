@@ -80,22 +80,13 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             // Get lobby name to join
             const std::string lobby_name = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName].get_or<std::string>();
 
-            // Find lobby
+            // Get lobby
             auto joined_lobby = peer_->persistent->app->get_lobby(lobby_name);
 
-            // Send response
-            ser::OperationResponseMessage resp;
-            if (joined_lobby == nullptr) {
-                // Lobby not found
-                resp = {
-                    .operation_code = OpCodes::Lobby::JoinLobby, .return_code = ErrorCodes::Data::InvalidRequestParameters, .debug_message = "Lobby not found"};
-                peer_->log->warn("Attempting to join unknown lobby: {}", lobby_name.empty() ? "(unnamed)" : lobby_name);
-            } else {
-                // Join the lobby
-                join_lobby(std::move(joined_lobby));
-                peer_->log->info("Joined lobby: {}", lobby_name.empty() ? "(unnamed)" : lobby_name);
-                resp = {.operation_code = OpCodes::Lobby::JoinLobby, .return_code = ErrorCodes::Core::Ok};
-            }
+            // Join the lobby
+            join_lobby(std::move(joined_lobby));
+            peer_->log->info("Joined lobby: {}", lobby_name.empty() ? "(unnamed)" : lobby_name);
+            ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::JoinLobby, .return_code = ErrorCodes::Core::Ok};
             send(proto_->Serialize(resp));
 
             // Send game list
@@ -146,7 +137,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
             return;
         }
 
-        case OpCodes::Lobby::GetGameList: {
+        case OpCodes::Lobby::GetGameList: { // TODO: Does this accept a list of expected properties?
             // Get filters
             const auto& lobby_name_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName];
             const auto& lobby_type_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyType];
@@ -368,7 +359,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
 
         case OpCodes::RpcAndMisc::Settings: {
             // Does the client want lobby stats?
-            wants_app_stats_ = req.parameters[DictKeyCodes::AuthAndLobby::LobbyStats].get_or<bool>(false);
+            wants_app_stats_ = req.parameters[DictKeyCodes::AuthAndLobby::LobbyStats].get_or<bool>(wants_app_stats_);
 
             // No response
             return;
