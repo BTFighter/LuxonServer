@@ -137,20 +137,13 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             return;
         }
 
-        case OpCodes::Lobby::GetGameList: { // TODO: Does this accept a list of expected properties?
-            // Get filters
-            const auto& lobby_name_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName];
-            const auto& lobby_type_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyType];
+        case OpCodes::Lobby::GetGameList: { // TODO: Does this accept a list of expected game properties?
+            // Get lobby
+            auto lobby = get_requested_lobby(req);
 
             // Build response
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::GetGameList};
-            resp.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list([&](const Lobby& lobby) {
-                if (lobby_name_param.is<std::string>() && lobby.name != lobby_name_param)
-                    return false;
-                if (lobby_type_param.is<std::string>() && lobby.type != lobby_type_param)
-                    return false;
-                return true;
-            });
+            resp.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(*lobby);
 
             // Send response
             send(proto_->Serialize(resp));
@@ -421,7 +414,7 @@ void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
                     // Send game creation
                     ser::EventMessage event;
                     event.event_code = EventCodes::GameList;
-                    event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list([game](const Game& o) { return &o == game.get(); });
+                    event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(*game->lobby, [game](const Game& o) { return &o == game.get(); });
 
                     send(proto_->Serialize(event));
                 },
@@ -430,7 +423,7 @@ void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
                     // Send game property change
                     ser::EventMessage event;
                     event.event_code = EventCodes::GameList;
-                    event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list([game](const Game& o) { return &o == game.get(); });
+                    event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(*game->lobby, [game](const Game& o) { return &o == game.get(); });
 
                     send(proto_->Serialize(event));
                 },
@@ -498,7 +491,7 @@ void MasterServerHandler::send_lobby_stats() {
     send(proto_->Serialize(event));
 }
 
-ser::HashtablePtr MasterServerHandler::get_game_list(std::function<bool(const Lobby&)> lobby_filter, std::function<bool(const Game&)> game_filter) {
+ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function<bool(const Game&)> game_filter) {
     // TODO: This is VERY slow. Maintain pre-sorted lists in Lobby?
 
     auto fres = std::make_shared<ser::Hashtable>();
@@ -506,16 +499,11 @@ ser::HashtablePtr MasterServerHandler::get_game_list(std::function<bool(const Lo
     if (!joined_lobby_.has_value())
         return fres;
 
-    auto& lobby = joined_lobby_->lobby;
-
-    if (lobby_filter && !lobby_filter(*lobby))
-        return fres;
-
     // Collect valid games into a vector
     std::vector<std::shared_ptr<Game>> sorted_games;
-    sorted_games.reserve(lobby->games.size());
+    sorted_games.reserve(lobby.games.size());
 
-    for (auto& [name, weak_game] : lobby->games) {
+    for (auto& [name, weak_game] : lobby.games) {
         auto game = weak_game.lock();
         if (!game)
             continue;
@@ -549,10 +537,13 @@ ser::HashtablePtr MasterServerHandler::get_game_list(std::function<bool(const Lo
 }
 
 void MasterServerHandler::send_game_list() {
+    if (!joined_lobby_)
+        return;
+
     ser::EventMessage event;
 
     event.event_code = EventCodes::GameList;
-    event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list();
+    event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(*joined_lobby_->lobby);
 
     send(proto_->Serialize(event));
 }
