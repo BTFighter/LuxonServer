@@ -14,6 +14,9 @@
 #include <luxon/ser_interface.hpp>
 #include <luxon/common_codes.hpp>
 
+// This is a very valuable ressource: https://doc.photonengine.com/realtime/current/lobby-and-matchmaking/matchmaking-and-lobby (2026-02-12)
+// http://web.archive.org/web/20260212131901/https://doc.photonengine.com/realtime/current/lobby-and-matchmaking/matchmaking-and-lobby
+
 namespace server {
 namespace {
 std::string generate_game_id(std::string prefix) {
