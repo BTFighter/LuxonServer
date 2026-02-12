@@ -10,7 +10,7 @@
 #include <luxon/common_codes.hpp>
 
 namespace server {
-void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void NameServerHandler::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     if (cmd_header.channel_id != 0)
         return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 

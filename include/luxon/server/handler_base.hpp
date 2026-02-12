@@ -28,9 +28,9 @@ public:
     virtual void HandleENetConnectionStateChange(enet::EnetConnectionState state);
     virtual void HandleENetCommand(const enet::EnetCommand& cmd);
     virtual void HandleHTTPRequest(const HttpRequest& request, const enet::EnetCommandHeader& cmd_header);
-    virtual void HandleInitRequest(ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header);
-    virtual void HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header);
-    virtual void HandleInternalOperationRequest(ser::InternalOperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header);
+    virtual void HandleInitRequest(const ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header);
+    virtual void HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header);
+    virtual void HandleInternalOperationRequest(const ser::InternalOperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header);
 
     const std::shared_ptr<Peer>& get_peer() const { return peer_; }
 

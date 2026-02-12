@@ -160,7 +160,7 @@ void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::Enet
     }
 }
 
-void HandlerBase::HandleInitRequest(ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleInitRequest(const ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header) {
     // Try to create new protocol implementation for given version
     auto protocol = ser::IProtocol::make(req.protocol_major, req.protocol_minor);
 
@@ -175,7 +175,7 @@ void HandlerBase::HandleInitRequest(ser::InitMessage& req, const enet::EnetComma
     }
 }
 
-void HandlerBase::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     // Only answer unknown operations on channel 0
     if (cmd_header.channel_id != 0)
         return;
@@ -195,7 +195,8 @@ void HandlerBase::HandleOperationRequest(ser::OperationRequestMessage& req, bool
     peer_->log->warn("Client sent operation request with unknown opcode: {}", req.operation_code);
 }
 
-void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationRequestMessage& req, bool is_encrypted,
+                                                 const enet::EnetCommandHeader& cmd_header) {
     if (cmd_header.channel_id != 0)
         return;
 

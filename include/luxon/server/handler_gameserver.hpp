@@ -14,7 +14,7 @@ public:
     using HandlerBase::HandlerBase;
 
     void HandleDisconnect() override;
-    void HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) override;
+    void HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) override;
 
     auto& get_game() { return peer_->persistent->current_game; }
 

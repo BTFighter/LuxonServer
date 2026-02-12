@@ -36,7 +36,7 @@ void MasterServerHandler::HandleSlowUpdate() {
     HandlerBase::HandleSlowUpdate();
 }
 
-void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     if (cmd_header.channel_id != 0)
         return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 

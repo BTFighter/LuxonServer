@@ -57,7 +57,7 @@ void GameServerHandler::HandleDisconnect() {
     }
 }
 
-void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     const auto ensure_is_master = [&]() {
         const bool is_master = game_peer_ && game_peer_->actor_id == get_game()->master_actor || get_game()->peers.size() == 0;
         if (!is_master) {
@@ -295,7 +295,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage& req
                 if (auto *flags = req.parameters[DictKeyCodes::GameSettings::GameFlags].get_ptr<int32_t>())
                     game->flags = *flags;
 
-                auto set_flag = [&](int32_t flag, bool *value) {
+                auto set_flag = [&](int32_t flag, const bool *value) {
                     if (!value)
                         return;
                     if (*value)
