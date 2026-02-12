@@ -383,12 +383,18 @@ std::shared_ptr<App> HttpServer::find_app_by_id(std::string_view app_id) {
     return nullptr;
 }
 
-Lobby *HttpServer::find_lobby_by_name(App *app, std::string_view name) {
+Lobby *HttpServer::find_lobby(App *app, std::string_view name, uint8_t type) {
     const auto lobbies = app->get_lobbies();
-    auto res = lobbies.find(name);
+    auto res = lobbies.find({name, type});
     if (res == lobbies.end())
         return nullptr;
     return res->second.lock().get();
+}
+
+Lobby *HttpServer::find_lobby(App *app, std::string_view name) {
+    const uint8_t type = name.back() - '0';
+    name = name.substr(0, name.size() - 1);
+    return find_lobby(app, name, type);
 }
 
 // Routing
@@ -501,15 +507,17 @@ json HttpServer::route_request(std::string_view method, std::string path) {
             json res = json::array();
             for (const auto& [name, weak_lobby] : app->get_lobbies()) {
                 if (auto lobby = weak_lobby.lock())
-                    res.push_back(
-                        {{"name", lobby->name}, {"type", lobby->type}, {"games_count", lobby->games.size()}, {"peer_count", lobby->get_peer_count()}});
+                    res.push_back({{"name", lobby->name + char(lobby->type + '0')},
+                                   {"type", lobby->type},
+                                   {"games_count", lobby->games.size()},
+                                   {"peer_count", lobby->get_peer_count()}});
             }
             return res;
         }
 
         // Lobby roots: /apps/{app}/lobbies/{name}/...
         if (segs.size() >= 4 && segs[2] == "lobbies") {
-            const Lobby *lobby = find_lobby_by_name(app.get(), segs[3]);
+            const Lobby *lobby = find_lobby(app.get(), segs[3]);
             if (!lobby)
                 throw std::out_of_range("Lobby name invalid");
 

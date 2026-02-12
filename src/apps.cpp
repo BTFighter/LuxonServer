@@ -10,21 +10,28 @@
 #include <utility>
 
 namespace server {
+size_t LobbyIdHash::operator()(const LobbyId& k) const noexcept {
+    std::size_t h1 = std::hash<std::string_view>{}(k.first);
+    std::size_t h2 = std::hash<unsigned int>{}(k.second); // avoid uint8_t quirks
+    // hash combine
+    return h1 ^ (h2 + 0x9e3779b97f4a7c15ull + (h1 << 6) + (h1 >> 2));
+}
+
 App::App(ServerManager& server_manager, std::string_view id, std::string_view version) : server_manager(server_manager), id(id), version(version) {}
 
-std::shared_ptr<Lobby> App::get_lobby(std::string_view name) {
+std::shared_ptr<Lobby> App::get_lobby(LobbyId id) {
     // Try to find lobby first
-    auto res = lobbies_.find(name);
+    auto res = lobbies_.find(id);
     if (res != lobbies_.end())
         if (auto lobby = res->second.lock())
             return lobby;
 
     // Create lobby
-    std::shared_ptr<Lobby> fres(new Lobby(get_shared(), std::string(name)), [this](Lobby *ptr) {
-        lobbies_.erase(ptr->name);
+    std::shared_ptr<Lobby> fres(new Lobby(get_shared(), std::string(id.first), id.second), [this](Lobby *ptr) {
+        lobbies_.erase(LobbyId{ptr->name, ptr->type});
         delete ptr;
     });
-    lobbies_[fres->name] = fres;
+    lobbies_[{fres->name, fres->type}] = fres;
     return fres;
 }
 

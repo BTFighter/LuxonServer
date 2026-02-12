@@ -22,11 +22,11 @@ struct GameListUpdateHandler {
 };
 
 struct Lobby : std::enable_shared_from_this<Lobby> {
-    Lobby(std::shared_ptr<App> app, std::string name) : app(std::move(app)), name(std::move(name)) {}
+    Lobby(std::shared_ptr<App> app, std::string name, uint8_t type = 0) : app(std::move(app)), name(std::move(name)), type(type) {}
 
     const std::shared_ptr<App> app;
     const std::string name;
-    constexpr static uint8_t type = 0; // Something for the future
+    const uint8_t type;
 
     std::unordered_map<std::string_view, std::weak_ptr<Game>> games;
     std::list<GameListUpdateHandler> game_list_update_handlers;

@@ -79,9 +79,10 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
         case OpCodes::Lobby::JoinLobby: {
             // Get lobby name to join
             const std::string lobby_name = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName].get_or<std::string>();
+            const uint8_t lobby_type = req.parameters[DictKeyCodes::AuthAndLobby::LobbyType].get_or<uint8_t>();
 
             // Get lobby
-            auto joined_lobby = peer_->persistent->app->get_lobby(lobby_name);
+            auto joined_lobby = peer_->persistent->app->get_lobby({lobby_name, lobby_type});
 
             // Join the lobby
             join_lobby(std::move(joined_lobby));
@@ -95,24 +96,20 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
         }
 
         case OpCodes::Lobby::LeaveLobby: {
-            // Get lobby name to leave
-            const std::string lobby_name = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName].get_or(std::string(get_joined_lobby_name()));
-
-            // Check if user is in given lobby
-            bool name_matches = joined_lobby_.has_value() && lobby_name == joined_lobby_->lobby->name;
-
             // Try to leave lobby
+            std::shared_ptr<Lobby> lobby;
             if (joined_lobby_.has_value()) {
-                auto lobby = joined_lobby_->lobby;
+                lobby = joined_lobby_->lobby;
                 leave_lobby();
-                if (lobby)
-                    peer_->log->info("Left lobby: {}", lobby->name.empty() ? "(unnamed)" : lobby->name);
             }
 
             // Send response (code is always "Ok")
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::LeaveLobby, .return_code = ErrorCodes::Core::Ok};
-            if (!name_matches)
-                resp.debug_message = "Not in lobby";
+            send(proto_->Serialize(resp));
+            if (lobby)
+                peer_->log->info("Left lobby: {}", lobby->name.empty() ? "(unnamed)" : lobby->name);
+            else
+                resp.debug_message = "Lobby not joined";
             send(proto_->Serialize(resp));
             return;
         }
@@ -385,10 +382,19 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage& r
 
 std::shared_ptr<Lobby> MasterServerHandler::get_requested_lobby(const ser::OperationRequestMessage& req) {
     std::optional<std::string> lobby_name;
+    uint8_t lobby_type{};
 
-    auto res = req.parameters.find(DictKeyCodes::AuthAndLobby::LobbyName);
-    if (res != req.parameters.end())
-        lobby_name = res->second.get_or<std::string>();
+    {
+        auto res = req.parameters.find(DictKeyCodes::AuthAndLobby::LobbyName);
+        if (res != req.parameters.end())
+            lobby_name = res->second.get_or<std::string>();
+    }
+
+    {
+        auto res = req.parameters.find(DictKeyCodes::AuthAndLobby::LobbyType);
+        if (res != req.parameters.end())
+            lobby_type = res->second.get_or<uint8_t>();
+    }
 
     if (lobby_name.has_value() && lobby_name->empty())
         lobby_name.reset();
@@ -400,7 +406,7 @@ std::shared_ptr<Lobby> MasterServerHandler::get_requested_lobby(const ser::Opera
             return peer_->persistent->app->get_lobby();
     }
 
-    return peer_->persistent->app->get_lobby(*lobby_name);
+    return peer_->persistent->app->get_lobby({*lobby_name, lobby_type});
 }
 
 void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
