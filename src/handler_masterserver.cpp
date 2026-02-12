@@ -137,9 +137,18 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             return;
         }
 
-        case OpCodes::Lobby::GetGameList: { // TODO: Does this accept a list of expected game properties?
+        case OpCodes::Lobby::GetGameList: {
             // Get lobby
             auto lobby = get_requested_lobby(req);
+
+            // Error out for non-sql lobbies
+            if (lobby->type == LobbyType::Default) {
+                ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::GetGameList,
+                                                   .return_code = ErrorCodes::Core::OperationInvalid,
+                                                   .debug_message = "Lobby must be non-default lobby type"};
+                send(proto_->Serialize(resp));
+                return;
+            }
 
             // Build response
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::GetGameList};
