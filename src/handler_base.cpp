@@ -200,7 +200,7 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
     if (cmd_header.channel_id != 0)
         return;
 
-    if (req.operation_code == IOpCodes::IOpInitEncryption) {
+    if (req.operation_code == ICodes::IOpInitEncryption) {
         // Answer crypto handshake
         auto expected_response = proto_->HandleInitEncryptionRequest(req);
         if (!expected_response) {
@@ -210,15 +210,15 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
         send(proto_->Serialize(*expected_response));
 
         peer_->log->info("Established encryption");
-    } else if (req.operation_code == IOpCodes::IOpPing) {
+    } else if (req.operation_code == ICodes::IOpPing) {
         // Answer internal pings
         ser::OperationResponseMessage resp;
-        resp.operation_code = IOpCodes::IOpPing;
+        resp.operation_code = ICodes::IOpPing;
         resp.return_code = ErrorCodes::Core::Ok;
 
-        const ser::Value& client_ts = req.parameters[IOpCodes::IKeyClientTimestamp];
-        resp.parameters[IOpCodes::IKeyClientTimestamp] = client_ts;
-        resp.parameters[IOpCodes::IKeyServerTimestamp] = static_cast<int32_t>(peer_->enet_peer->get_server_time());
+        const ser::Value& client_ts = req.parameters[ICodes::IKeyClientTimestamp];
+        resp.parameters[ICodes::IKeyClientTimestamp] = client_ts;
+        resp.parameters[ICodes::IKeyServerTimestamp] = static_cast<int32_t>(peer_->enet_peer->get_server_time());
         peer_->log->info("Got internal operation ping: TS={}", client_ts.get<int32_t>());
 
         send(proto_->Serialize(resp));
