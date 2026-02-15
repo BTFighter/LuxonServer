@@ -6,6 +6,7 @@
 #include "peer.hpp"
 #include "peer_persistence.hpp"
 #include "apps.hpp"
+#include "data_model.hpp"
 
 #include <algorithm>
 #include <random>
@@ -13,6 +14,14 @@
 #include <luxon/common_codes.hpp>
 
 namespace server {
+namespace models {
+using namespace DictKeyCodes::LoadBalancing;
+
+using TokenAuth = Model<Parameter<std::string, Token>>;
+
+using StandardAuth = Model<Parameter<std::string, ApplicationId>, Parameter<std::string, AppVersion, true>, Parameter<std::string, UserId, true>>;
+} // namespace models
+
 namespace {
 std::string generate_user_id() {
     static std::mt19937 gen{std::random_device{}()};
@@ -27,35 +36,35 @@ std::string generate_user_id() {
 
 ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& peer, const ser::OperationRequestMessage& req,
                                            const enet::EnetCommandHeader& cmd_header, bool refresh_token) {
-    // Decide on algorithm
+    // Decide on algorithm based on the presence of the Token parameter
     const bool token_auth = req.parameters.contains(DictKeyCodes::LoadBalancing::Token);
 
-    // Try authentication
-    try {
-        if (token_auth) {
-            // Token mechanism
-            peer.persistent = load_persistent_peer(server_manager, req.parameters.at(DictKeyCodes::LoadBalancing::Token).get<std::string>(), refresh_token);
-        } else {
-            // Regular mechanism (very simple for now)
-            auto& p = peer.persistent = create_persistent_peer();
-            p->app = App::get(server_manager, req.parameters.at(DictKeyCodes::LoadBalancing::ApplicationId).get<std::string>(),
-                              req.parameters.at(DictKeyCodes::LoadBalancing::AppVersion)
-                                  .get_or<std::string>("(null app version not really supported, but Photon accepts it, so we try to emulate it)"));
-            if (req.parameters.contains(DictKeyCodes::LoadBalancing::UserId))
-                p->user_id = req.parameters.at(DictKeyCodes::LoadBalancing::UserId).get<std::string>();
-            else
-                p->user_id = generate_user_id();
-        }
-    } catch (const std::out_of_range& e) {
-        // Handle bad parameter map access
-        return {.operation_code = req.operation_code,
-                .return_code = ErrorCodes::Data::InvalidRequestParameters,
-                .debug_message = std::format("Missing parameter: {}", e.what())};
-    } catch (const std::bad_variant_access& e) {
-        // Handle bad parameter variant access
-        return {.operation_code = req.operation_code,
-                .return_code = ErrorCodes::Data::InvalidRequestParameters,
-                .debug_message = std::format("Invalid parameter type: {}", e.what())};
+    if (token_auth) {
+        // Token mechanism
+        const auto params = models::TokenAuth::decode(req);
+        if (!params)
+            return params.error();
+
+        peer.persistent = load_persistent_peer(server_manager, params->get<DictKeyCodes::LoadBalancing::Token>(), refresh_token);
+    } else {
+        // Regular mechanism
+        const auto params = models::StandardAuth::decode(req);
+        if (!params)
+            return params.error();
+
+        auto& p = peer.persistent = create_persistent_peer();
+
+        // Handle app version
+        const std::string *version_ptr = params->get<DictKeyCodes::LoadBalancing::AppVersion>();
+        const std::string app_version = version_ptr ? *version_ptr : "(null app version not really supported, but Photon accepts it, so we try to emulate it)";
+
+        p->app = App::get(server_manager, params->get<DictKeyCodes::LoadBalancing::ApplicationId>(), app_version);
+
+        // Generate user ID if not provided
+        if (const std::string *uid = params->get<DictKeyCodes::LoadBalancing::UserId>())
+            p->user_id = *uid;
+        else
+            p->user_id = generate_user_id();
     }
 
     // Check for success
