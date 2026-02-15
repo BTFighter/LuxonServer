@@ -3,6 +3,7 @@
 
 #include "handler_masterserver.hpp"
 #include "global.hpp"
+#include "data_model.hpp"
 #include "handler_gameserver.hpp"
 #include "server_manager.hpp"
 #include "authentication.hpp"
@@ -30,6 +31,21 @@ std::string generate_game_id(std::string prefix) {
 }
 } // namespace
 
+namespace models {
+using namespace DictKeyCodes;
+
+using ClientSettings = Model<Parameter<bool, AuthAndLobby::LobbyStats, true>>;
+
+using LobbyId = Model<Parameter<std::string, AuthAndLobby::LobbyName, false, DefaultString<"">>,
+                      Parameter<LobbyType::Enum, AuthAndLobby::LobbyType, false, DefaultConst<LobbyType::Default>>>;
+
+using CreateGame = Model<Parameter<std::string, GameAndActor::GameId, false, DefaultString<"">>>;
+using JoinGame = ExtendedModel<CreateGame, Parameter<uint8_t, AuthAndLobby::CreateIfNotExists, false, DefaultConst<false>>>;
+
+using JoinRandomGame = Model<Parameter<MatchmakingType::Enum, LoadBalancing::MatchmakingType, false, DefaultInit>,
+                             Parameter<ser::HashtablePtr, DictKeyCodes::Properties::GameProperties, false, DefaultInit>>;
+} // namespace models
+
 void MasterServerHandler::HandleSlowUpdate() {
     if (wants_app_stats_ && last_app_stats_.get() > 8000) {
         send_app_stats();
@@ -48,8 +64,14 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 
         case OpCodes::Auth::Authenticate:
         case OpCodes::Auth::AuthenticateOnce: {
+            const auto params = models::ClientSettings::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
+
             // Does the client want lobby stats?
-            const bool wants_lobby_stats = req.parameters[DictKeyCodes::AuthAndLobby::LobbyStats].get_or<bool>(true);
+            const bool wants_lobby_stats = params->get<DictKeyCodes::AuthAndLobby::LobbyStats>().value_or(true);
 
             // Try to authenticate
             auto resp = authenticate(server_manager_, *peer_, req, cmd_header);
@@ -65,7 +87,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             if (peer_->is_authenticated()) {
                 auto& app = peer_->persistent->app;
 
-                // Remove player from current game
+                // Fully remove player's reference to current game
                 peer_->persistent->current_game.reset();
 
                 // Send stats once if requested
@@ -80,16 +102,16 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         switch (req.operation_code) {
 
         case OpCodes::Lobby::JoinLobby: {
-            // Get lobby name to join
-            const std::string lobby_name = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName].get_or<std::string>();
-            const uint8_t lobby_type = req.parameters[DictKeyCodes::AuthAndLobby::LobbyType].get_or<uint8_t>();
-
             // Get lobby
-            auto joined_lobby = peer_->persistent->app->get_lobby({lobby_name, lobby_type});
+            auto joined_lobby = get_requested_lobby(req);
+            if (!joined_lobby) {
+                send(proto_->Serialize(joined_lobby.error()));
+                return;
+            }
 
             // Join the lobby
-            join_lobby(std::move(joined_lobby));
-            peer_->log->info("Joined lobby: {}", lobby_name.empty() ? "(unnamed)" : lobby_name);
+            join_lobby(std::move(*joined_lobby));
+            peer_->log->info("Joined lobby: {}", joined_lobby_->lobby->name.empty() ? "(unnamed)" : joined_lobby_->lobby->name);
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::JoinLobby, .return_code = ErrorCodes::Core::Ok};
             send(proto_->Serialize(resp));
 
@@ -117,7 +139,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             return;
         }
 
-        case OpCodes::Lobby::LobbyStats: {
+        case OpCodes::Lobby::LobbyStats: { // TODO: This looks really unclean. What is going on?
             // Get filters
             const auto& lobby_name_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName];
             const auto& lobby_type_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyType];
@@ -140,9 +162,13 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         case OpCodes::Lobby::GetGameList: {
             // Get lobby
             auto lobby = get_requested_lobby(req);
+            if (!lobby) {
+                send(proto_->Serialize(lobby.error()));
+                return;
+            }
 
             // Error out for non-sql lobbies
-            if (lobby->type == LobbyType::Default) {
+            if (lobby.value()->type == LobbyType::Default) {
                 ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::GetGameList,
                                                    .return_code = ErrorCodes::Core::OperationInvalid,
                                                    .debug_message = "Lobby must be non-default lobby type"};
@@ -152,7 +178,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 
             // Build response
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::GetGameList};
-            resp.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(*lobby);
+            resp.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(**lobby);
 
             // Send response
             send(proto_->Serialize(resp));
@@ -160,17 +186,27 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Matchmaking::CreateGame: {
-            std::string game_id = req.parameters[DictKeyCodes::GameAndActor::GameId].get_or<std::string>();
+            const auto params = models::CreateGame::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
+
+            std::string game_id = params->get<DictKeyCodes::GameAndActor::GameId>();
 
             // Get lobby
             auto lobby = get_requested_lobby(req);
+            if (!lobby) {
+                send(proto_->Serialize(lobby.error()));
+                return;
+            }
 
             // Generate game ID if empty
             if (game_id.empty())
                 game_id = generate_game_id(peer_->persistent->user_id);
 
             // Make sure no game with given ID already exists
-            if (lobby->games.contains(game_id)) {
+            if (lobby.value()->games.contains(game_id)) {
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::CreateGame,
                                                          .return_code = ErrorCodes::Matchmaking::GameIdAlreadyExists,
                                                          .debug_message = "Game ID already exists"};
@@ -180,7 +216,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 
             // Create new game with given ID
             peer_->log->info("Creating game: {}", game_id);
-            auto game = lobby->create_game(std::move(game_id));
+            auto game = lobby.value()->create_game(std::move(game_id));
 
             // Join the game
             peer_->persistent->current_game = game;
@@ -198,20 +234,29 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Matchmaking::JoinGame: {
-            std::string game_id = req.parameters[DictKeyCodes::GameAndActor::GameId].get_or<std::string>();
-            const bool create_if_not_exists = req.parameters[DictKeyCodes::AuthAndLobby::CreateIfNotExists].get_or<uint8_t>(false);
+            const auto params = models::JoinGame::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
+
+            const std::string& game_id = params->get<DictKeyCodes::GameAndActor::GameId>();
 
             // Get lobby
             auto lobby = get_requested_lobby(req);
+            if (!lobby) {
+                send(proto_->Serialize(lobby.error()));
+                return;
+            }
 
             // Find game with given ID
             peer_->log->info("Finding game: {}", game_id);
-            auto res = lobby->games.find(game_id);
+            auto res = lobby.value()->games.find(game_id);
 
             std::shared_ptr<Game> game;
             bool is_new = false;
-            if (res == lobby->games.end()) {
-                if (!create_if_not_exists) {
+            if (res == lobby.value()->games.end()) {
+                if (!params->get<DictKeyCodes::AuthAndLobby::CreateIfNotExists>()) {
                     const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
                                                              .return_code = ErrorCodes::Matchmaking::GameIdNotExists,
                                                              .debug_message = "Game ID does not exist"};
@@ -219,13 +264,20 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
                     return;
                 }
 
-                game = lobby->create_game(std::move(game_id));
+                // Generate game ID if empty
+                std::string new_game_id;
+                if (game_id.empty())
+                    new_game_id = generate_game_id(peer_->persistent->user_id);
+                else
+                    new_game_id = game_id;
+
+                game = lobby.value()->create_game(std::move(new_game_id));
                 is_new = true;
             } else {
                 game = res->second.lock();
             }
 
-            // Make sure game isn't expired
+            // Make sure game hasn't expired
             if (!game) {
                 const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
                                                          .return_code = ErrorCodes::Core::InternalServerError,
@@ -260,30 +312,36 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Matchmaking::JoinRandomGame: {
-            const uint8_t matchmaking_type = req.parameters[DictKeyCodes::LoadBalancing::MatchmakingType].get_or<uint8_t>(0); // 0 = FillRoom
-            const auto& expected_props_param = req.parameters[DictKeyCodes::Properties::GameProperties];
-            auto expected_users = req.parameters[DictKeyCodes::Properties::GameProperties].get_or<std::vector<std::string>>();
+            const auto params = models::JoinRandomGame::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
 
             // Get lobby
             auto lobby = get_requested_lobby(req);
+            if (!lobby) {
+                send(proto_->Serialize(lobby.error()));
+                return;
+            }
 
             ser::Hashtable expected_props;
-            if (auto p = expected_props_param.get_or<ser::HashtablePtr>())
+            if (auto p = params->get<DictKeyCodes::Properties::GameProperties>())
                 expected_props = *p;
 
             // Collect candidates
             std::vector<std::shared_ptr<Game>> candidates;
 
             // Better to allocate more than less?
-            candidates.reserve(lobby->games.size());
+            candidates.reserve(lobby.value()->games.size());
 
-            for (auto& [id, weak_game] : lobby->games) {
+            for (auto& [id, weak_game] : lobby.value()->games) {
                 auto game = weak_game.lock();
                 if (!game)
                     continue;
 
-                // Make sure game is joinable
-                if (!game->validate_join(peer_->persistent->user_id, expected_users.size()))
+                // Make sure game is joinable  TODO: Pass expected user count too
+                if (!game->validate_join(peer_->persistent->user_id))
                     continue;
 
                 // Property filter
@@ -307,7 +365,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             // Select Game based on matchmaking type
             std::shared_ptr<Game> selected_game;
 
-            switch (matchmaking_type) {
+            switch (params->get<DictKeyCodes::LoadBalancing::MatchmakingType>()) {
             case MatchmakingType::SerialMatching: {
                 // Priorize games with fewer players
                 std::ranges::sort(candidates, [](const std::shared_ptr<Game>& a, const std::shared_ptr<Game>& b) { return a->peers.size() < b->peers.size(); });
@@ -339,10 +397,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             // Make token valid for this game
             peer_->persistent->current_game = selected_game;
 
-            // Expect users
+            // Expect users  TODO: expect all given users
             selected_game->expected_users.emplace(peer_->persistent->user_id);
-            for (auto&& expected_user : expected_users)
-                selected_game->expected_users.emplace(std::move(expected_user));
 
             // Send Response
             ser::OperationResponseMessage resp;
@@ -360,8 +416,14 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::RpcAndMisc::Settings: {
+            const auto params = models::ClientSettings::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
+
             // Does the client want lobby stats?
-            wants_app_stats_ = req.parameters[DictKeyCodes::AuthAndLobby::LobbyStats].get_or<bool>(wants_app_stats_);
+            wants_app_stats_ = params->get<DictKeyCodes::AuthAndLobby::LobbyStats>().value_or(true);
 
             // No response
             return;
@@ -385,33 +447,16 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
     return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 }
 
-std::shared_ptr<Lobby> MasterServerHandler::get_requested_lobby(const ser::OperationRequestMessage& req) {
-    std::optional<std::string> lobby_name;
-    uint8_t lobby_type{};
+std::expected<std::shared_ptr<Lobby>, ser::OperationResponseMessage> MasterServerHandler::get_requested_lobby(const ser::OperationRequestMessage& req) {
+    const auto lobby_id = models::LobbyId::decode(req);
+    if (!lobby_id)
+        return std::unexpected(lobby_id.error());
+    const std::string& lobby_name = lobby_id->get<DictKeyCodes::AuthAndLobby::LobbyName>();
 
-    {
-        auto res = req.parameters.find(DictKeyCodes::AuthAndLobby::LobbyName);
-        if (res != req.parameters.end())
-            lobby_name = res->second.get_or<std::string>();
-    }
+    if (lobby_name.empty() && joined_lobby_)
+        return joined_lobby_->lobby;
 
-    {
-        auto res = req.parameters.find(DictKeyCodes::AuthAndLobby::LobbyType);
-        if (res != req.parameters.end())
-            lobby_type = res->second.get_or<uint8_t>();
-    }
-
-    if (lobby_name.has_value() && lobby_name->empty())
-        lobby_name.reset();
-
-    if (!lobby_name.has_value()) {
-        if (joined_lobby_.has_value())
-            return joined_lobby_->lobby;
-        else
-            return peer_->persistent->app->get_lobby();
-    }
-
-    return peer_->persistent->app->get_lobby({*lobby_name, lobby_type});
+    return peer_->persistent->app->get_lobby({lobby_id->get<DictKeyCodes::AuthAndLobby::LobbyName>(), lobby_id->get<DictKeyCodes::AuthAndLobby::LobbyType>()});
 }
 
 void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
