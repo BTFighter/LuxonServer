@@ -225,7 +225,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 
             // Build and send response
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::CreateGame, .return_code = ErrorCodes::Core::Ok};
-            resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer);
+            resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer, peer_->transport_protocol);
             resp.parameters[DictKeyCodes::GameAndActor::GameId] = game->id;
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
 
@@ -305,7 +305,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 
             // Build and send response
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame, .return_code = ErrorCodes::Core::Ok};
-            resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer);
+            resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer, peer_->transport_protocol);
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
 
             send(proto_->Serialize(resp));
@@ -414,7 +414,7 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             resp.return_code = ErrorCodes::Core::Ok;
 
             // Payload similar to Create/Join Game
-            resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer);
+            resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer, peer_->transport_protocol);
             resp.parameters[DictKeyCodes::GameAndActor::GameId] = selected_game->id;
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
 

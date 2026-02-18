@@ -14,6 +14,7 @@
 #include <luxon/visualizer.hpp>
 #include <luxon/internal_codes.hpp>
 #include <luxon/common_codes.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 namespace server {
 namespace {
@@ -222,6 +223,10 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
         peer_->log->info("Got internal operation ping: TS={}", client_ts.get<int32_t>());
 
         send(proto_->Serialize(resp));
+    } else if (req.operation_code == ICodes::IOpTransportProtocol) {
+        // Quietly process transport protocol tell
+        req.parameters[ICodes::IKeyTransportProtocol].store_if(reinterpret_cast<uint8_t&>(peer_->transport_protocol));
+        peer_->log->info("Got informed about transport protocol: {}", magic_enum::enum_name(peer_->transport_protocol));
     } else {
         // Answer unknown operation
         const ser::OperationResponseMessage resp{.operation_code = req.operation_code,

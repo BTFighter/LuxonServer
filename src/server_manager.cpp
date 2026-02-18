@@ -80,6 +80,18 @@ ServerType StringToServerType(const std::string& str) {
     throw std::runtime_error("Unknown ServerType: " + str);
 }
 
+ServerProtocol StringToEndpointProtocol(const std::string& str) {
+    if (str == "UDP")
+        return ServerProtocol::UDP;
+    if (str == "TCP")
+        return ServerProtocol::TCP;
+    if (str == "WebSocket")
+        return ServerProtocol::WebSocket;
+
+    // Throw error
+    throw std::runtime_error("Unknown protocol: " + str);
+}
+
 std::string LoadFile(const std::string& filename) {
     std::ifstream f(filename, std::ios::binary);
     if (!f)
@@ -162,7 +174,7 @@ ServerManager::ServerManager(const std::string& config_file) {
                     }
                     if (!item["address"].IsNone()) {
                         std::string addr = item["address"].As<std::string>();
-                        endpoints.push_back({currentType, addr, false});
+                        endpoints.push_back({currentType, ServerProtocol::UDP, addr});
                     }
                 }
             }
@@ -170,6 +182,7 @@ ServerManager::ServerManager(const std::string& config_file) {
         // Handle "External" Section
         else if (key == "External") {
             ServerType extType = ServerType::None;
+            ServerProtocol extProto = ServerProtocol::UDP;
             std::string extAddr;
             bool addrFound = false;
 
@@ -181,6 +194,10 @@ ServerManager::ServerManager(const std::string& config_file) {
                         std::string typeStr = item["type"].As<std::string>();
                         extType = StringToServerType(typeStr);
                     }
+                    if (!item["protocol"].IsNone()) {
+                        std::string protoStr = item["protocol"].As<std::string>();
+                        extProto = StringToEndpointProtocol(protoStr);
+                    }
                     if (!item["address"].IsNone()) {
                         extAddr = item["address"].As<std::string>();
                         addrFound = true;
@@ -189,7 +206,7 @@ ServerManager::ServerManager(const std::string& config_file) {
             }
 
             if (extType != ServerType::None && addrFound)
-                endpoints.push_back({extType, extAddr, true});
+                endpoints.push_back({extType, extProto, extAddr});
         }
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Handle "Http Server" Section
@@ -301,13 +318,13 @@ bool ServerManager::delay(unsigned int milliseconds) {
 }
 #endif
 
-const std::string& ServerManager::get_endpoint_of(ServerType server_type) {
+const std::string& ServerManager::get_endpoint_of(ServerType server_type, ServerProtocol server_proto) {
     std::vector<const std::string *> candidates;
     candidates.reserve(endpoints.size());
 
     // Collect all valid addresses for the requested type
     for (const auto& endpoint : endpoints)
-        if (endpoint.type == server_type)
+        if (endpoint.type == server_type && endpoint.protocol == server_proto)
             candidates.push_back(&endpoint.address);
 
     // Handle cases where no config exists

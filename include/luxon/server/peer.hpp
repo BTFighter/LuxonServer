@@ -20,6 +20,7 @@ struct Peer {
     std::shared_ptr<enet::EnetPeer> enet_peer;
     std::shared_ptr<logger> log;
     std::unique_ptr<PeerPersistent> persistent;
+    ServerProtocol transport_protocol = ServerProtocol::UDP;
 
     ///
     /// \brief Checks if client has successfully authenticated with the server

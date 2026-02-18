@@ -4,11 +4,16 @@
 #pragma once
 
 #include <version>
+#include <luxon/internal_codes.hpp>
 
-namespace luxon {}
+namespace luxon {
+namespace ITransportProtocol {}
+} // namespace luxon
 
 namespace server {
 using namespace luxon;
+
+using ServerProtocol = luxon::ITransportProtocol::Enum;
 }
 
 #if !defined(__cpp_lib_move_only_function)
