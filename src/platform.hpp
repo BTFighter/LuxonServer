@@ -170,6 +170,37 @@ public:
     static void clear_screen() { consoleClear(); }
 };
 
+// --------------------------------------------------------------------------
+// PLATFORM: GENERIC
+// --------------------------------------------------------------------------
+#else
+#include <iostream>
+
+class Platform {
+public:
+    Platform() {}
+    Platform(Platform&) = delete;
+    Platform(const Platform&) = delete;
+    Platform(Platform&&) = delete;
+
+    ~Platform() {
+        std::cout << std::flush;
+        std::cerr << std::flush;
+        std::clog << std::endl << "Runtime destroyed." << std::endl;
+    }
+
+    static inline bool cooperate() noexcept { return true; }
+
+    static const char *read_input(const char *hint) {
+        static std::string content;
+        std::cout << hint << ": ";
+        std::getline(std::cin, content);
+        return content.c_str();
+    }
+
+    static void clear_screen() { std::cout << "\033[H\033[2J\033[3J"; }
+};
+
 #endif
 
 // --------------------------------------------------------------------------

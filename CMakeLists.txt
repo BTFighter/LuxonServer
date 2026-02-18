@@ -132,8 +132,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL Windows)
     target_link_libraries(luxon_server ws2_32)
 elseif (CMAKE_SYSTEM_NAME STREQUAL Nintendo3DS)
     target_compile_definitions(luxon_server PUBLIC PLATFORM_3DS)
-else()
-    message(SEND_ERROR "${CMAKE_SYSTEM_NAME} is not a supported platform!")
 endif()
 
 
