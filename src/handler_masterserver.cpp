@@ -42,8 +42,10 @@ using LobbyId = Model<Parameter<std::string, AuthAndLobby::LobbyName, false, Def
 using CreateGame = Model<Parameter<std::string, GameAndActor::GameId, false, DefaultString<"">>>;
 using JoinGame = ExtendedModel<CreateGame, Parameter<uint8_t, AuthAndLobby::CreateIfNotExists, false, DefaultConst<false>>>;
 
-using JoinRandomGame = Model<Parameter<MatchmakingType::Enum, LoadBalancing::MatchmakingType, false, DefaultInit>,
-                             Parameter<ser::HashtablePtr, DictKeyCodes::Properties::GameProperties, false, DefaultInit>>;
+using JoinRandomGame =
+    Model<Parameter<MatchmakingType::Enum, LoadBalancing::MatchmakingType, false, DefaultInit>,
+          Parameter<ser::HashtablePtr, DictKeyCodes::Properties::GameProperties, false, DefaultInit>,
+          Parameter<uint8_t, AuthAndLobby::CreateIfNotExists, false>, Parameter<std::string, GameAndActor::GameId, false, DefaultString<"">>>;
 } // namespace models
 
 void MasterServerHandler::HandleSlowUpdate() {
@@ -351,47 +353,53 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
                 candidates.push_back(std::move(game));
             }
 
-            if (candidates.empty()) {
-                const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinRandomGame,
-                                                         .return_code = ErrorCodes::Matchmaking::NoRandomMatchFound,
-                                                         .debug_message = "No matching game found"};
-                send(proto_->Serialize(resp));
-                return;
-            }
-
             // The previous allocation might've been quite a bit overzealous, fix that
             candidates.shrink_to_fit();
 
             // Select Game based on matchmaking type
             std::shared_ptr<Game> selected_game;
 
-            switch (params->get<DictKeyCodes::LoadBalancing::MatchmakingType>()) {
-            case MatchmakingType::SerialMatching: {
-                // Priorize games with fewer players
-                std::ranges::sort(candidates, [](const std::shared_ptr<Game>& a, const std::shared_ptr<Game>& b) { return a->peers.size() < b->peers.size(); });
-                selected_game = candidates.front();
-            } break;
-            case MatchmakingType::FillRoom: {
-                // Priorize games with more players
-                std::ranges::sort(candidates, [](const std::shared_ptr<Game>& a, const std::shared_ptr<Game>& b) { return a->peers.size() > b->peers.size(); });
-                selected_game = candidates.front();
+            if (!candidates.empty()) {
+                switch (params->get<DictKeyCodes::LoadBalancing::MatchmakingType>()) {
+                case MatchmakingType::SerialMatching: {
+                    // Priorize games with fewer players
+                    std::ranges::sort(candidates,
+                                      [](const std::shared_ptr<Game>& a, const std::shared_ptr<Game>& b) { return a->peers.size() < b->peers.size(); });
+                    selected_game = candidates.front();
+                } break;
+                case MatchmakingType::FillRoom: {
+                    // Priorize games with more players
+                    std::ranges::sort(candidates,
+                                      [](const std::shared_ptr<Game>& a, const std::shared_ptr<Game>& b) { return a->peers.size() > b->peers.size(); });
+                    selected_game = candidates.front();
 
-            } break;
-            case MatchmakingType::RandomMatching: {
-                // Uniform distribution
-                static std::mt19937 rng(peer_->enet_peer->bytes_out());
-                std::uniform_int_distribution<size_t> dist(0, candidates.size() - 1);
-                selected_game = candidates[dist(rng)];
-            } break;
+                } break;
+                case MatchmakingType::RandomMatching: {
+                    // Uniform distribution
+                    static std::mt19937 rng(peer_->enet_peer->bytes_out());
+                    std::uniform_int_distribution<size_t> dist(0, candidates.size() - 1);
+                    selected_game = candidates[dist(rng)];
+                } break;
+                }
             }
 
-            // Return error if no game was selected
+            // Handle no-match condition
             if (!selected_game) {
-                const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinRandomGame,
-                                                         .return_code = ErrorCodes::Matchmaking::NoRandomMatchFound,
-                                                         .debug_message = "No match found"};
-                send(proto_->Serialize(resp));
-                return;
+                if (!params->get<DictKeyCodes::AuthAndLobby::CreateIfNotExists>()) {
+                    const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinRandomGame,
+                                                             .return_code = ErrorCodes::Matchmaking::NoRandomMatchFound,
+                                                             .debug_message = "No matching game found"};
+                    send(proto_->Serialize(resp));
+                    return;
+                }
+
+                // Generate game ID if empty
+                std::string game_id = params->get<DictKeyCodes::GameAndActor::GameId>();
+                if (game_id.empty())
+                    game_id = generate_game_id(peer_->persistent->user_id);
+
+                // Create new game
+                selected_game = lobby.value()->create_game(std::move(game_id));
             }
 
             // Make token valid for this game
