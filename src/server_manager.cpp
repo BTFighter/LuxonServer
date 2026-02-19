@@ -181,14 +181,14 @@ ServerManager::ServerManager(const std::string& config_file) {
         }
         // Handle "External" Section
         else if (key == "External") {
-            ServerType extType = ServerType::None;
-            ServerProtocol extProto = ServerProtocol::UDP;
-            std::string extAddr;
-            bool addrFound = false;
-
             if (section.IsSequence()) {
                 for (auto itemIt = section.Begin(); itemIt != section.End(); itemIt++) {
                     Yaml::Node& item = (*itemIt).second;
+
+                    ServerType extType = ServerType::None;
+                    ServerProtocol extProto = ServerProtocol::UDP;
+                    std::string extAddr;
+                    bool addrFound = false;
 
                     if (!item["type"].IsNone()) {
                         std::string typeStr = item["type"].As<std::string>();
@@ -202,11 +202,11 @@ ServerManager::ServerManager(const std::string& config_file) {
                         extAddr = item["address"].As<std::string>();
                         addrFound = true;
                     }
+
+                    if (extType != ServerType::None && addrFound)
+                        endpoints.push_back({extType, extProto, extAddr});
                 }
             }
-
-            if (extType != ServerType::None && addrFound)
-                endpoints.push_back({extType, extProto, extAddr});
         }
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Handle "Http Server" Section

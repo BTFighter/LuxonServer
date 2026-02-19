@@ -213,14 +213,13 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
         peer_->log->info("Established encryption");
     } else if (req.operation_code == ICodes::IOpPing) {
         // Answer internal pings
-        ser::OperationResponseMessage resp;
+        ser::InternalOperationResponseMessage resp;
         resp.operation_code = ICodes::IOpPing;
         resp.return_code = ErrorCodes::Core::Ok;
 
         const ser::Value& client_ts = req.parameters[ICodes::IKeyClientTimestamp];
         resp.parameters[ICodes::IKeyClientTimestamp] = client_ts;
         resp.parameters[ICodes::IKeyServerTimestamp] = static_cast<int32_t>(peer_->enet_peer->get_server_time());
-        peer_->log->info("Got internal operation ping: TS={}", client_ts.get<int32_t>());
 
         send(proto_->Serialize(resp));
     } else if (req.operation_code == ICodes::IOpTransportProtocol) {

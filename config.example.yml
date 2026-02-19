@@ -1,20 +1,46 @@
+# Internal servers
+
 NameServer:
   - port: 5058
-  - address: 192.168.1.100:5058
+  - address: 127.0.0.1:5058
 
 MasterServer:
   - port: 5055
-  - address: 192.168.1.100:5055
+  - address: 127.0.0.1:5055
 
 GameServer:
   - port: 5056
-  - address: 192.168.1.100:5056
+  - address: 127.0.0.1:5056
 
-#HTTP:
-#  - active: false
-#  - address: 0.0.0.0
-#  - port: 5088
 
-#External:
-#  - type: GameServer
-#  - address: 159.195.5.90
+NameServer:
+  - port: 27000
+  - address: 127.0.0.1:27000
+
+MasterServer:
+  - port: 27001
+  - address: 127.0.0.1:27001
+
+GameServer:
+  - port: 27002
+  - address: 127.0.0.1:27002
+
+
+# External servers (transport protocol proxies)
+
+External:
+  - type: NameServer
+    address: 127.0.0.1:4533
+    protocol: TCP
+  - type: MasterServer
+    address: 127.0.0.1:4530
+    protocol: TCP
+  - type: GameServer
+    address: 127.0.0.1:4531
+    protocol: TCP
+
+
+# Web interface and API
+
+HTTP:
+  - active: true
