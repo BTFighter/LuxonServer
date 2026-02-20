@@ -491,7 +491,7 @@ void ServerManager::setup() {
             // Construct peer
             auto peer = std::make_shared<Peer>();
             peer->enet_peer = enetPeer;
-            peer->log = create_logger(std::format("Peer {}@{})", enetPeer->peer_id(), enetPeer->remote_endpoint()->to_string()));
+            peer->log = create_logger(std::format("Peer {}@{}", enetPeer->peer_id(), enetPeer->remote_endpoint()->to_string()));
             peer->protocol = std::make_unique<ser::GpBinaryV18>(); // Default version
 #ifndef NDEBUG
             peer->log->set_level(log_level::trace);
