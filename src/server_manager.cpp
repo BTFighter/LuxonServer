@@ -362,27 +362,31 @@ void ServerManager::run() {
 
 bool ServerManager::run_once() {
     {
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Start idle performance timer
         const auto start_time = std::chrono::steady_clock::now();
+#endif
 
 #ifndef LUXON_SERVER_POLL
         // Run sock selector
         sock_selector_.run(125);
 #endif
 
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // End idle performance timer
         const auto end_time = std::chrono::steady_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
-#ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Store metric
         idle_time.add(static_cast<unsigned>(duration));
 #endif
     }
 
     {
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Start busy performance timer
         const auto start_time = std::chrono::steady_clock::now();
+#endif
 
         // Check if slow update should be done
         const bool slow_update = last_slow_update_.get() > 250;
@@ -459,13 +463,11 @@ bool ServerManager::run_once() {
 #else
             http_server_->service();
 #endif
-#endif
 
         // End busy performance timer
         const auto end_time = std::chrono::steady_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
-#ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Store metric
         busy_time.add(static_cast<unsigned>(duration));
 #endif
