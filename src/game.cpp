@@ -314,7 +314,11 @@ ser::Hashtable Game::get_lobby_game_props() {
     fres[GameProps::PlayerCount] = static_cast<uint8_t>(peers.size());
     fres[GameProps::IsOpen] = is_open;
     fres[GameProps::MaxPlayers] = max_peers;
-    fres[GameProps::LobbyProperties] = lobby_props;
+
+    for (const auto& key : lobby_props)
+        if (custom_props.contains(key))
+            fres.emplace(key, custom_props[key]);
+
     return fres;
 }
 

@@ -15,6 +15,7 @@ Ducks Can Drive
 KEABE: Kill 'Em All - Bunny Edition
 + Loads in game
 - Uses stubbed "FindFriends" MasterServer opcode
+- Uses non-byte keyed dictionaries
 
 Paint Warfare
 + Works flawlessly
