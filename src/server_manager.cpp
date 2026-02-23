@@ -423,7 +423,8 @@ bool ServerManager::run_once() {
                 if (std::ranges::contains(readable_socks, server.native_handle()))
 #endif
                     server.service_self();
-                server.service_peers();
+                if (!server.service_peers())
+                    log_->warn("Queueing UDP datagrams!");
             } catch (const std::exception& e) {
                 log_->warn("Uncaught exception: {}", e.what());
             }
