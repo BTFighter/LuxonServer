@@ -7,7 +7,7 @@ Bomb Bots Arena
 - Freezes when beginning actual gameplay
 
 Controlled Death
-+ Loads in game, plays fine with bots
++ Works flawlessly
 
 Ducks Can Drive
 + Works flawlessly
