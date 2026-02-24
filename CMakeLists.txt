@@ -16,6 +16,8 @@ option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of game plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
 option(LUXON_USE_EMBED_RESOURCE "Use EmbedResource instead of incbin.h" OFF)
 
+set(WEB_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/web")
+
 # Apply single-threaded optimizations if strictly single-threaded
 if (NOT LUXON_SERVER_ENABLE_PLUGINS AND NOT WIN32)
     add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU>:-fno-threadsafe-statics>)
@@ -24,11 +26,11 @@ endif()
 
 # MSVC-specific configurations
 if (MSVC)
-    # commoncpp gets compiled without ASAN and includes <vector>.
-    # This causes issues during linking, so we have to turn it off.
+    # commoncpp gets compiled without ASAN and includes <vector>
+    # This causes issues during linking, so we have to turn it off
     set(SANMAKE_ASAN OFF)
 
-    # incbin.h is not supported on MSVC.
+    # incbin.h is not supported on MSVC
     set(LUXON_USE_EMBED_RESOURCE ON)
 endif()
 
@@ -79,9 +81,6 @@ add_executable(luxon_server
 target_link_libraries(luxon_server
     sanmake commoncpp magic_enum luxon_enet luxon_ser luxon_http_parser luxon_visualizer
 )
-target_compile_definitions(luxon_server PRIVATE
-    SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
-)
 target_include_directories(luxon_server PRIVATE include/luxon/server PUBLIC include)
 
 # Windows specific fixes
@@ -94,7 +93,7 @@ if (LUXON_USE_EMBED_RESOURCE)
     if (NOT EmbedResource_FOUND)
         CPMAddPackage("gh:ankurvdev/embedresource@0.0.12")
     endif()
-    add_resource_library(luxon_server_resources OBJECT RESOURCE_COLLECTION_NAME http_resources RESOURCES "index.html;stats.html;style.css")
+    add_resource_library(luxon_server_resources OBJECT RESOURCE_COLLECTION_NAME http_resources RESOURCES "${WEB_ROOT_PATH}/index.html;${WEB_ROOT_PATH}/stats.html;${WEB_ROOT_PATH}/style.css")
     target_link_libraries(luxon_server luxon_server_resources)
     add_compile_definitions(LUXON_USE_EMBED_RESOURCE)
 endif()
@@ -106,7 +105,10 @@ endif()
 
 if (LUXON_SERVER_ENABLE_WEBSERVER)
     target_sources(luxon_server PRIVATE include/luxon/server/http_server.hpp src/http_server.cpp)
-    target_compile_definitions(luxon_server PRIVATE LUXON_SERVER_ENABLE_WEBSERVER)
+    target_compile_definitions(luxon_server PRIVATE
+        LUXON_SERVER_ENABLE_WEBSERVER
+        LUXON_SERVER_WEB_ROOT="${WEB_ROOT_PATH}"
+    )
 endif()
 
 if (LUXON_SERVER_ENABLE_PLUGINS)

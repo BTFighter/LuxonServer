@@ -45,9 +45,9 @@ DECLARE_RESOURCE(http_resources, style_css);
 #define GET_RESOURCE(name) LOAD_RESOURCE(http_resources, name).data 
 #else
 extern "C" {
-    INCBIN(index_html, SOURCE_DIR "/index.html");
-    INCBIN(stats_html, SOURCE_DIR "/stats.html");
-    INCBIN(style_css, SOURCE_DIR "/style.css");
+INCBIN(index_html, LUXON_SERVER_WEB_ROOT "/index.html");
+INCBIN(stats_html, LUXON_SERVER_WEB_ROOT "/stats.html");
+INCBIN(style_css, LUXON_SERVER_WEB_ROOT "/style.css");
 }
 #define GET_RESOURCE(name) {incbin_ ## name ## _start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_ ## name ## _end - incbin_ ## name ## _start))} 
 #endif
