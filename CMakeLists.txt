@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(LuxonServer LANGUAGES CXX)
+project(LuxonServer LANGUAGES C CXX)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 23)
@@ -76,7 +76,7 @@ add_executable(luxon_server
     include/luxon/server/game.hpp  include/luxon/server/handler_nameserver.hpp    include/luxon/server/server_manager.hpp src/incbin.h       src/yaml.cpp
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp
     include/luxon/server/lobby.hpp    include/luxon/server/string_hash.hpp  src/handler_base.cpp src/json.hpp      src/peer_persistence.cpp
-    include/luxon/server/data_model.hpp
+    include/luxon/server/data_model.hpp src/sqlite3.c src/sqlite3.h
 )
 target_link_libraries(luxon_server
     sanmake commoncpp magic_enum luxon_enet luxon_ser luxon_http_parser luxon_visualizer
