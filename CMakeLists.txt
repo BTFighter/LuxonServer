@@ -83,6 +83,7 @@ target_link_libraries(luxon_server
     sanmake commoncpp magic_enum luxon_enet luxon_ser luxon_http_parser luxon_visualizer
 )
 target_include_directories(luxon_server PRIVATE include/luxon/server PUBLIC include)
+target_compile_definitions(luxon_server PRIVATE SQLITE_CUSTOM_INCLUDE=sqlite3-config.h)
 
 # Windows specific fixes
 if (MSVC)

@@ -39,4 +39,8 @@ void Platform::custom_terminate() noexcept {
     exit(-errno);
 }
 
+// Stubs for SQLite3
+uid_t geteuid(void) { return 0; }
+int fchown(int fd, uid_t owner, gid_t group) { return 0; }
+
 #endif
