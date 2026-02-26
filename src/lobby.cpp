@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "lobby.hpp"
+#include "lobby_vt.hpp"
 #include "apps.hpp"
 #include "game.hpp"
 #include "sqlite3.h"
 
 #include <memory>
+#include <regex>
 #include <stdexcept>
+#include <commoncpp/utils.hpp>
 #include <luxon/common_codes.hpp>
 
 namespace server {
@@ -23,27 +26,32 @@ struct SQLFinalize {
 
 Lobby::Lobby(std::shared_ptr<App> app, std::string name, uint8_t type) : app(std::move(app)), name(std::move(name)), type(type) {
     if (type == LobbyType::SqlLobby) {
-        // Open the in-memory database
+        // Open database
         int status = sqlite3_open(":memory:", &sql);
         if (status != SQLITE_OK)
             throw std::runtime_error(std::format("Failed to create SQLite DB for SQL lobby: {}", sqlite3_errstr(status)));
 
-        // Initialize database
-        constexpr const char *init_seq = R"(
-            CREATE TABLE Games (
-                    __id TEXT UNIQUE,
-                    C0 TEXT, C1 TEXT, C2 TEXT, C3 TEXT, C4 TEXT,
-                    C5 TEXT, C6 TEXT, C7 TEXT, C8 TEXT, C9 TEXT
-            );
-        )";
+        // Register virtual games table
+        register_lobby_virtual_table(sql, this);
+
+        // Create virtual games table in database
         char *error_message;
-        status = sqlite3_exec(sql, init_seq, NULL, nullptr, &error_message);
+        status = sqlite3_exec(sql, "CREATE VIRTUAL TABLE Games USING LobbyGames;", NULL, nullptr, &error_message);
         if (status != SQLITE_OK) {
             const std::unique_ptr<char, decltype(&sqlite3_free)> unique_error_message(error_message, sqlite3_free);
-            throw std::runtime_error(std::format("Failed to initialize SQLite DB for SQL lobby: {}", error_message));
+            throw std::runtime_error(std::format("Failed to initialize Virtual Table for SQL lobby: {}", error_message));
+        }
+
+        // Make database fully read-only (can only be undone using `PRAGMA query_only = OFF`)
+        status = sqlite3_exec(sql, "PRAGMA query_only = ON;", NULL, nullptr, &error_message);
+        if (status != SQLITE_OK) {
+            const std::unique_ptr<char, decltype(&sqlite3_free)> unique_error_message(error_message, sqlite3_free);
+            throw std::runtime_error(std::format("Failed to set database to read-only: {}", error_message));
         }
     }
 }
+
+Lobby::~Lobby() noexcept { sqlite3_close_v2(sql); }
 
 std::shared_ptr<Game> Lobby::create_game(std::string id, bool or_get) {
     auto res = games.find(id);
@@ -87,73 +95,62 @@ size_t Lobby::get_master_peer_count() const {
     return fres;
 }
 
-void Lobby::sql_create_game(const std::string& id) {
-    if (!sql)
-        throw std::runtime_error("Not an SQL capable lobby!");
+#include <regex>
+// Note: Make sure to include <regex> and <format> at the top of your file.
 
-    sqlite3_stmt *statement = nullptr;
-    SQLFinalize finalize{statement};
+std::vector<std::string> Lobby::query_lobbies(const std::string& sql_queries) {
+    // Split into list of queries
+    std::vector<std::string_view> queries = common::utils::str_split(sql_queries, ';', 3);
+    if (queries.empty())
+        return {};
+    if (queries.back().empty())
+        queries.pop_back();
+    if (queries.empty())
+        return {};
 
-    const char *sql_text = "INSERT INTO Games(__id) VALUES(?1);";
-    int status = sqlite3_prepare_v2(sql, sql_text, -1, &statement, nullptr);
-    if (status != SQLITE_OK)
-        throw std::runtime_error(std::format("Failed to prepare INSERT for SQL lobby: {}", sqlite3_errmsg(sql)));
+    // Make sure there are no more than 3 queries
+    if (queries.size() > 3)
+        throw std::runtime_error("There may be no more than 3 SQL queries at a time");
 
-    status = sqlite3_bind_text(statement, 1, id.c_str(), -1, SQLITE_TRANSIENT);
-    if (status != SQLITE_OK)
-        throw std::runtime_error(std::format("Failed to bind id for SQL lobby: {}", sqlite3_errmsg(sql)));
+    // Check for excluded SQL keywords
+    static const std::regex forbidden_keywords(R"(\b(ALTER|CREATE|DELETE|DROP|EXEC|EXECUTE|INSERT|MERGE|SELECT|UPDATE|UNION)\b)",
+                                               std::regex::icase | std::regex::optimize);
 
-    status = sqlite3_step(statement);
-    if (status != SQLITE_DONE)
-        throw std::runtime_error(std::format("Failed to insert game into SQL lobby: {}", sqlite3_errmsg(sql)));
-}
+    if (std::regex_search(sql_queries, forbidden_keywords))
+        throw std::runtime_error("SQL filter contains excluded keywords.");
 
-void Lobby::sql_update_game_property(const std::string& id, char c_digit, const std::string& value) {
-    if (!sql)
-        throw std::runtime_error("Not an SQL capable lobby!");
+    std::vector<std::string> results;
 
-    if (c_digit < '0' || c_digit > '9')
-        throw std::invalid_argument("c_digit must be in ['0'..'9']");
+    // Process chained filters in order
+    for (const auto& filter : queries) {
+        if (filter.empty())
+            continue;
 
-    std::string sql_text = std::format("UPDATE Games SET C{}=?1 WHERE __id=?2;", c_digit);
+        // Select the __id using the user's WHERE condition
+        std::string full_query = std::format("SELECT __id FROM Games WHERE {} LIMIT 100;", filter);
 
-    sqlite3_stmt *statement = nullptr;
-    SQLFinalize finalize{statement};
-    int status = sqlite3_prepare_v2(sql, sql_text.c_str(), -1, &statement, nullptr);
-    if (status != SQLITE_OK)
-        throw std::runtime_error(std::format("Failed to prepare UPDATE for SQL lobby: {}", sqlite3_errmsg(sql)));
+        sqlite3_stmt *stmt = nullptr;
+        SQLFinalize stmt_guard{stmt};
 
-    status = sqlite3_bind_text(statement, 1, value.c_str(), -1, SQLITE_TRANSIENT);
-    if (status != SQLITE_OK)
-        throw std::runtime_error(std::format("Failed to bind value for SQL lobby: {}", sqlite3_errmsg(sql)));
+        int status = sqlite3_prepare_v2(sql, full_query.c_str(), -1, &stmt, nullptr);
+        if (status != SQLITE_OK)
+            throw std::runtime_error(std::format("SQL preparation failed: {}", sqlite3_errstr(status)));
 
-    status = sqlite3_bind_text(statement, 2, id.c_str(), -1, SQLITE_TRANSIENT);
-    if (status != SQLITE_OK)
-        throw std::runtime_error(std::format("Failed to bind id for SQL lobby: {}", sqlite3_errmsg(sql)));
+        // Fetch matching room IDs
+        while ((status = sqlite3_step(stmt)) == SQLITE_ROW) {
+            const unsigned char *id_text = sqlite3_column_text(stmt, 0);
+            if (id_text)
+                results.emplace_back(reinterpret_cast<const char *>(id_text));
+        }
 
-    status = sqlite3_step(statement);
-    if (status != SQLITE_DONE)
-        throw std::runtime_error(std::format("Failed to update game property in SQL lobby: {}", sqlite3_errmsg(sql)));
-}
+        if (status != SQLITE_DONE)
+            throw std::runtime_error(std::format("SQL execution failed: {}", sqlite3_errstr(status)));
 
-void Lobby::sql_delete_game(const std::string& id) {
-    if (!sql)
-        throw std::runtime_error("Not an SQL capable lobby!");
+        // If at least one match in this chain link was found, stop and return the results
+        if (!results.empty())
+            break;
+    }
 
-    sqlite3_stmt *statement = nullptr;
-    SQLFinalize finalize{statement};
-
-    const char *sql_text = "DELETE FROM Games WHERE __id=?1;";
-    int status = sqlite3_prepare_v2(sql, sql_text, -1, &statement, nullptr);
-    if (status != SQLITE_OK)
-        throw std::runtime_error(std::format("Failed to prepare DELETE for SQL lobby: {}", sqlite3_errmsg(sql)));
-
-    status = sqlite3_bind_text(statement, 1, id.c_str(), -1, SQLITE_TRANSIENT);
-    if (status != SQLITE_OK)
-        throw std::runtime_error(std::format("Failed to bind id for SQL lobby: {}", sqlite3_errmsg(sql)));
-
-    status = sqlite3_step(statement);
-    if (status != SQLITE_DONE)
-        throw std::runtime_error(std::format("Failed to delete game from SQL lobby: {}", sqlite3_errmsg(sql)));
+    return results;
 }
 } // namespace server

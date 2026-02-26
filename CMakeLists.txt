@@ -77,6 +77,7 @@ add_executable(luxon_server
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp
     include/luxon/server/lobby.hpp    include/luxon/server/string_hash.hpp  src/handler_base.cpp src/json.hpp      src/peer_persistence.cpp
     include/luxon/server/data_model.hpp src/sqlite3.c src/sqlite3.h
+    src/lobby_vt.hpp src/lobby_vt.cpp
 )
 target_link_libraries(luxon_server
     sanmake commoncpp magic_enum luxon_enet luxon_ser luxon_http_parser luxon_visualizer

@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <list>
+#include <vector>
 #include <functional>
 #include <unordered_map>
 #include <cstdint>
@@ -25,6 +26,12 @@ struct GameListUpdateHandler {
 
 struct Lobby : std::enable_shared_from_this<Lobby> {
     Lobby(std::shared_ptr<App> app, std::string name, uint8_t type = 0);
+    ~Lobby() noexcept;
+
+    Lobby(Lobby&&) = delete;
+    Lobby(const Lobby&) = delete;
+    Lobby& operator=(Lobby&&) = delete;
+    Lobby& operator=(const Lobby&) = delete;
 
     const std::shared_ptr<App> app;
     const std::string name;
@@ -40,8 +47,7 @@ struct Lobby : std::enable_shared_from_this<Lobby> {
     size_t get_peer_count() const;
     size_t get_master_peer_count() const;
 
-    void sql_create_game(const std::string& id);
-    void sql_update_game_property(const std::string& id, char c_digit, const std::string& value);
-    void sql_delete_game(const std::string& id);
+    // Returns exceptions with user error strings!
+    std::vector<std::string> query_lobbies(const std::string& sql_queries);
 };
 } // namespace server
