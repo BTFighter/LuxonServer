@@ -554,8 +554,6 @@ void MasterServerHandler::send_lobby_stats() {
 }
 
 ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function<bool(const Game&)> game_filter) {
-    // TODO: This is VERY slow. Maintain pre-sorted lists in Lobby?
-
     auto fres = std::make_shared<ser::Hashtable>();
 
     if (!joined_lobby_.has_value())
@@ -571,29 +569,36 @@ ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function
             continue;
         if (game_filter && !game_filter(*game))
             continue;
+
         sorted_games.push_back(std::move(game));
     }
 
-    // Sort them: Open > Full > Closed
+    // The list is sorted using two criteria: open or closed, full or not.
     std::ranges::sort(sorted_games, [](const std::shared_ptr<Game>& a, const std::shared_ptr<Game>& b) {
-        // Priority 1: Openness (isOpen && peers < max)
-        bool a_open = a->is_open && a->peers.size() < a->max_peers;
-        bool b_open = b->is_open && b->peers.size() < b->max_peers;
-        if (a_open != b_open)
-            return a_open > b_open; // Open comes first
+        auto get_group = [](const Game& g) {
+            // First group: open and not full (joinable).
+            if (g.is_open && g.peers.size() < g.max_peers)
+                return 0;
+            // Third group: closed (not joinable, could be full or not).
+            if (!g.is_open)
+                return 2;
+            // Second group: full but not closed (not joinable).
+            return 1;
+        };
 
-        // Priority 2: Filled status (Not full > Full)
-        bool a_full = a->peers.size() >= a->max_peers;
-        bool b_full = b->peers.size() >= b->max_peers;
-        if (a_full != b_full)
-            return b_full > a_full; // Not full comes first
+        int group_a = get_group(*a);
+        int group_b = get_group(*b);
 
-        return a->id < b->id; // Stable fallback
+        if (group_a != group_b)
+            return group_a < group_b;
+
+        return a->id < b->id;
     });
 
     // Populate final list
-    for (const auto& game : sorted_games)
-        fres->emplace(game->id, std::make_shared<ser::Hashtable>(game->get_lobby_game_props()));
+    const size_t max_entries = 500;
+    for (size_t i = 0; i < std::min(sorted_games.size(), max_entries); ++i)
+        fres->emplace(sorted_games[i]->id, std::make_shared<ser::Hashtable>(sorted_games[i]->get_lobby_game_props()));
 
     return fres;
 }
