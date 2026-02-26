@@ -190,11 +190,13 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::GetGameList};
 
             try {
+                const auto& games = lobby.value()->games;
+
                 auto game_ids = lobby.value()->query_lobbies(params->get<DictKeyCodes::RoutingAndEvents::Data>());
                 auto game_list = std::make_shared<ser::Hashtable>();
 
                 for (const auto& id : game_ids)
-                    if (auto res = lobby.value()->games.find(id); res != lobby.value()->games.end())
+                    if (auto res = games.find(id); res != games.end())
                         if (auto game = res->second.lock())
                             game_list->emplace(id, std::make_shared<ser::Hashtable>(game->get_lobby_game_props()));
 
