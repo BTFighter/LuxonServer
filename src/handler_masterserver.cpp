@@ -48,6 +48,9 @@ using JoinRandomGame =
     ExtendedModel<SqlQuery, Parameter<MatchmakingType::Enum, LoadBalancing::MatchmakingType, false, DefaultInit>,
                   Parameter<ser::HashtablePtr, Properties::GameProperties, false, DefaultInit>, Parameter<uint8_t, AuthAndLobby::CreateIfNotExists, false>,
                   Parameter<std::string, GameAndActor::GameId, false, DefaultString<"">>>;
+
+using FindFriends = Model<Parameter<std::vector<std::string>, AuthAndLobby::FindFriendsRequestList, false>,
+                          Parameter<int, AuthAndLobby::FindFriendsOptions, false, DefaultConst<FindFriendsOptions::Default>>>;
 } // namespace models
 
 void MasterServerHandler::HandleSlowUpdate() {
@@ -483,13 +486,50 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Social::FindFriends: {
-            // TODO: Stub. Reverse engineer and implement properly
-            ser::OperationResponseMessage resp;
-            resp.operation_code = OpCodes::Social::FindFriends;
-            resp.return_code = ErrorCodes::Core::Ok;
+            const auto params = models::FindFriends::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
 
-            resp.parameters[DictKeyCodes::AuthAndLobby::FindFriendsResponseOnlineList] = std::vector<bool>{false};
-            resp.parameters[DictKeyCodes::AuthAndLobby::FindFriendsResponseRoomIdList] = std::vector<std::string>{""};
+            const auto& friend_list = params->get<DictKeyCodes::AuthAndLobby::FindFriendsRequestList>();
+            const int flags = params->get<DictKeyCodes::AuthAndLobby::FindFriendsOptions>();
+            std::vector<bool> online_list;
+            std::vector<std::string> room_list;
+
+            online_list.reserve(friend_list.size());
+            room_list.reserve(friend_list.size());
+
+            const auto& connections = server_manager_.get_connections();
+
+            for (const auto& friend_id : friend_list) {
+                bool is_online = false;
+                std::string room_id = "";
+
+                for (const auto& conn : connections) {
+                    auto peer_conn = conn->get_peer();
+                    if (peer_conn && peer_conn->persistent && peer_conn->persistent->user_id == friend_id) {
+                        is_online = true;
+                        if (auto game = peer_conn->persistent->current_game) {
+                            if ((flags & FindFriendsOptions::CreatedOnGS) && !game->find_peer(peer_conn))
+                                break;
+                            if ((flags & FindFriendsOptions::Visible) && !game->is_visible)
+                                break;
+                            if ((flags & FindFriendsOptions::Open) && !game->is_open)
+                                break;
+                            room_id = game->id;
+                        }
+                        break;
+                    }
+                }
+                online_list.push_back(is_online);
+                room_list.push_back(room_id);
+            }
+
+            ser::OperationResponseMessage resp{.operation_code = OpCodes::Social::FindFriends};
+
+            resp.parameters[DictKeyCodes::AuthAndLobby::FindFriendsResponseOnlineList] = std::move(online_list);
+            resp.parameters[DictKeyCodes::AuthAndLobby::FindFriendsResponseRoomIdList] = std::move(room_list);
 
             send(proto_->Serialize(resp));
             return;

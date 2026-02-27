@@ -118,11 +118,17 @@ struct Game : std::enable_shared_from_this<Game> {
     ///
     bool flood_peer(GamePeer *game_peer);
     ///
-    /// \brief Finds peer with given actor_id
+    /// \brief Finds game peer with given actor_id
     /// \param actor_id Actor_id to look for
     /// \return Pointer to GamePeer with given actor_id if successful, otherwise nullptr
     ///
     GamePeer *find_peer(int32_t actor_id);
+    ///
+    /// \brief Finds game peer with given peer
+    /// \param peer Peer to look for
+    /// \return Pointer to GamePeer with given actor_id if successful, otherwise nullptr
+    ///
+    GamePeer *find_peer(const std::shared_ptr<Peer>& peer);
     ///
     /// \brief Broadcasts an event to the lobby
     /// \param event Event to broadcast

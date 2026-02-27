@@ -165,9 +165,16 @@ bool Game::flood_peer(GamePeer *game_peer) {
 }
 
 GamePeer *Game::find_peer(int32_t actor_id) {
-    for (auto& peer : peers)
-        if (peer.actor_id == actor_id)
-            return &peer;
+    for (auto& game_peer : peers)
+        if (game_peer.actor_id == actor_id)
+            return &game_peer;
+    return nullptr;
+}
+
+GamePeer *Game::find_peer(const std::shared_ptr<Peer>& peer) {
+    for (auto& game_peer : peers)
+        if (game_peer.peer.lock() == peer)
+            return &game_peer;
     return nullptr;
 }
 
