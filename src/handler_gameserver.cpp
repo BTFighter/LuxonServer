@@ -325,7 +325,7 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
             })
 
             // Apply game settings
-            if (is_master) { // TODO: Make sure only master can set these options in reference impl!
+            if (is_master) {
                 if (auto player_ttl = params->get<DictKeyCodes::GameSettings::PlayerTTL>())
                     game->player_ttl = *player_ttl;
                 if (auto empty_room_ttl = params->get<DictKeyCodes::GameSettings::EmptyRoomTTL>())
