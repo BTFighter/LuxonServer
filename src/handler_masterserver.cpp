@@ -50,7 +50,7 @@ using JoinRandomGame = ExtendedModel<SqlQuery, Parameter<MatchmakingType::Enum, 
                                      Parameter<std::string, GameAndActor::GameId, false, DefaultString<"">>>;
 
 using FindFriends = Model<Parameter<std::vector<std::string>, AuthAndLobby::FindFriendsRequestList, false>,
-                          Parameter<int, AuthAndLobby::FindFriendsOptions, false, DefaultConst<FindFriendsOptions::Default>>>;
+                          Parameter<int32_t, AuthAndLobby::FindFriendsOptions, false, DefaultConst<FindFriendsOptions::Default>>>;
 } // namespace models
 
 void MasterServerHandler::HandleSlowUpdate() {
