@@ -235,8 +235,10 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
             bool can_cache = (cache_op == CacheOperation::AddToRoomCache || cache_op == CacheOperation::AddToRoomCacheGlobal);
             if (can_cache && params->get<ActorList>() == nullptr &&
                 params->get<DictKeyCodes::RoutingAndEvents::ReceiverGroup>() != ReceiverGroup::MasterClient &&
-                params->get<DictKeyCodes::RoutingAndEvents::ReceiverGroup>() == 0) {
-                Event cached_copy = event; // Making copy to allow change below to happen non-destructively
+                params->get<DictKeyCodes::RoutingAndEvents::InterestGroup>() == 0) {
+                // Make copy to allow potential change below to happen non-destructively
+                Event cached_copy = event;
+
                 if (cache_op == CacheOperation::AddToRoomCacheGlobal)
                     cached_copy.sender_actor_id = 0; // Can not be traced back
 
