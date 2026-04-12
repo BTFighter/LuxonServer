@@ -11,6 +11,7 @@ Ducks Can Drive
 
 KEABE: Kill 'Em All - Bunny Edition
 + Loads in game
+- Uses unimplemented opcode 0
 
 Paint Warfare
 + Works flawlessly
