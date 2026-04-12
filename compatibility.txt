@@ -6,15 +6,11 @@ Bomb Bots Arena
 - Tries to use unimplemented/stubbed chat opcodes
 - Freezes when beginning actual gameplay
 
-Controlled Death
-+ Works flawlessly
-
 Ducks Can Drive
 + Works flawlessly
 
 KEABE: Kill 'Em All - Bunny Edition
 + Loads in game
-- Uses non-byte keyed dictionaries
 
 Paint Warfare
 + Works flawlessly

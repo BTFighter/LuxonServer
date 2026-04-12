@@ -44,10 +44,10 @@ using JoinGame = ExtendedModel<CreateGame, Parameter<uint8_t, AuthAndLobby::Crea
 
 using SqlQuery = Model<Parameter<std::string, RoutingAndEvents::Data, false, DefaultString<"">>>;
 
-using JoinRandomGame =
-    ExtendedModel<SqlQuery, Parameter<MatchmakingType::Enum, LoadBalancing::MatchmakingType, false, DefaultInit>,
-                  Parameter<ser::HashtablePtr, Properties::GameProperties, false, DefaultInit>, Parameter<uint8_t, AuthAndLobby::CreateIfNotExists, false>,
-                  Parameter<std::string, GameAndActor::GameId, false, DefaultString<"">>>;
+using JoinRandomGame = ExtendedModel<SqlQuery, Parameter<MatchmakingType::Enum, LoadBalancing::MatchmakingType, false, DefaultInit>,
+                                     Parameter<ser::HashtablePtr, Properties::GameProperties, false, DefaultInit>,
+                                     Parameter<uint8_t, AuthAndLobby::CreateIfNotExists, false, DefaultConst<false>>,
+                                     Parameter<std::string, GameAndActor::GameId, false, DefaultString<"">>>;
 
 using FindFriends = Model<Parameter<std::vector<std::string>, AuthAndLobby::FindFriendsRequestList, false>,
                           Parameter<int, AuthAndLobby::FindFriendsOptions, false, DefaultConst<FindFriendsOptions::Default>>>;
