@@ -2,13 +2,14 @@
 
 Luxon Server is a clean-room implementation of the Photon LoadBalancing server. It is built on top of the Luxon project, which provides the necessary reimplementation of the ENet protocol and Photon's binary serialization format.
 The goal of this project is to be a drop-in replacement for the official server for multiplayer games that utilize Photon. It aims to support games out of the box, provided they do not rely on complex server-side plugins, though a plugin system is available if needed.
-This entire project was pulled up in about two weeks, so while it is functional, expect it to be fast moving.
 
 ## Legal Disclaimer
 
 > Luxon Server is an independent, open-source project developed for educational, interoperability and game preservation purposes. It is strictly a clean-room implementation.
 > 
 > This project is **not** affiliated with, endorsed by, sponsored by, or authorized by Exit Games Inc., Exit Games GmbH, or any of their subsidiaries. "Photon", "Photon Engine", and "Exit Games" are trademarks or registered trademarks of Exit Games. All trademarks and registered trademarks are the property of their respective owners. Use of these names does not imply any affiliation with or endorsement by them.
+
+All reverse engineering for all code contained inside the the Luxon Server project has happened by looking at traffic dumps between an official server and an official client via a transparent proxy. I am going to release that proxy earlier or later, I just haven't gotten to making the code readable and clean yet.
 
 ## Compatibility
 
@@ -22,7 +23,7 @@ Chat opcodes aren't implemented yet.
 To build Luxon Server, you will need:
 
 * CMake 3.16 or higher
-* A C++ compiler and standard library capable of supporting **C++23**
+* A C++ compiler and standard library capable of supporting **C++23** and exceptions support
 
 ### Building
 
@@ -79,7 +80,7 @@ The server is primarily developed for Linux and Windows. There is also full supp
 **A:** I have looked into spawning more processes running GameServer instances, as an alternative to multi-threading. However, I am strictly against supporting load balancing across different systems. I do NOT want to agitate Exit Games by releasing a competitive product.
 
 **Q:** Are you going to write bindings for writing plugins in C#, Python, Javascript, ...?\
-**A:** No. First of all, the project is moving very quickly right now. These bindings would need constant updating and maintenance. Feel free to contribute your own bindings.
+**A:** No. First of all, the project is moving very quickly right now. These bindings would need constant updating and maintenance. Feel free to maintain your own bindings externally, pinned to a specific version of Luxon Server.
 
 **Q:** Isn't it a bad idea to provide blocking functions (functions that only return when an operation has completed) in `ServerManager` when the server is purely single-threaded?\
 **A:** This is fairly well hidden, but plugins actually always run in coroutines. These functions suspend the coroutine until the work is complete.
