@@ -711,16 +711,26 @@ ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function
         sorted_games.push_back(std::move(game));
     }
 
-    // The list is sorted using two criteria: open or closed, full or not.
+    // Shortcut if no game did match
+    if (sorted_games.empty())
+        return fres;
+
+    // Shortcut if only one game did match
+    if (sorted_games.size() == 1) {
+        fres->emplace(sorted_games[0]->id, std::make_shared<ser::Hashtable>(sorted_games[0]->get_lobby_game_props()));
+        return fres;
+    }
+
+    // The list is sorted using two criteria: open or closed, full or not
     std::ranges::sort(sorted_games, [](const std::shared_ptr<Game>& a, const std::shared_ptr<Game>& b) {
         auto get_group = [](const Game& g) {
             // First group: open and not full (joinable).
             if (g.is_open && g.peers.size() < g.max_peers)
                 return 0;
-            // Third group: closed (not joinable, could be full or not).
+            // Third group: closed (not joinable, could be full or not)
             if (!g.is_open)
                 return 2;
-            // Second group: full but not closed (not joinable).
+            // Second group: full but not closed (not joinable)
             return 1;
         };
 
