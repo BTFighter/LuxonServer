@@ -78,11 +78,10 @@ void HandlerBase::HandleENetConnectionStateChange(enet::EnetConnectionState stat
     peer_->log->info("Client is now {}", state_name);
 }
 
-void HandlerBase::HandleENetCommand(const enet::EnetCommand& cmd) {
+void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
     ZoneScoped;
 
     // Try to parse header
-    ser::Message message;
     auto expected_message = proto_->Deserialize(cmd.payload);
     if (!expected_message) {
         // Try to parse as HTTP request
@@ -97,7 +96,8 @@ void HandlerBase::HandleENetCommand(const enet::EnetCommand& cmd) {
         return;
     }
 
-    message = *expected_message;
+    ser::Message& message = *expected_message;
+    cmd.payload.clear();
 
     if (auto *req = std::get_if<ser::InitMessage>(&message))
         return HandleInitRequest(*req, cmd.header);

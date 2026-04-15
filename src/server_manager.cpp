@@ -542,7 +542,7 @@ void ServerManager::setup() {
                 }
             };
 
-            enetPeer->on_payload_command = [this, handler = handler_ptr](const enet::EnetCommand& cmd) {
+            enetPeer->on_payload_command = [this, handler = handler_ptr](enet::EnetCommand&& cmd) {
                 auto& peer = handler->get_peer();
 #ifndef NDEBUG
                 peer->log->trace("Received message using mode {} on channel {}:", static_cast<int>(enet::FlagsToEnetDeliveryMode(cmd.header.flags)),
@@ -565,7 +565,7 @@ void ServerManager::setup() {
 #endif
 
                          try {
-                             handler->HandleENetCommand(cmd);
+                             handler->HandleENetCommand(std::move(cmd));
                          } catch (const std::exception& e) {
                              auto& peer = *handler->get_peer();
                              peer.log->critical("Disconnecting due to uncaught exception in ENet command handler: {}", e.what());

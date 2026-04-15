@@ -26,7 +26,7 @@ public:
     virtual void HandleUpdate();
     virtual void HandleSlowUpdate();
     virtual void HandleENetConnectionStateChange(enet::EnetConnectionState state);
-    virtual void HandleENetCommand(const enet::EnetCommand& cmd);
+    virtual void HandleENetCommand(enet::EnetCommand&& cmd);
     virtual void HandleHTTPRequest(const HttpRequest& request, const enet::EnetCommandHeader& cmd_header);
     virtual void HandleInitRequest(const ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header);
     virtual void HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header);
