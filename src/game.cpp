@@ -7,6 +7,7 @@
 
 #include <luxon/ser_interface.hpp>
 #include <luxon/common_codes.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 bool GamePeer::has_interest_group(uint8_t group) const {
@@ -32,6 +33,8 @@ Game::~Game(){// Call into plugins
               })}
 
 GamePeer Game::create_peer(std::shared_ptr<Peer> peer) {
+    ZoneScoped;
+
     GamePeer fres{.peer = std::move(peer)};
 
     if (!peer)
@@ -54,6 +57,8 @@ GamePeer Game::create_peer(std::shared_ptr<Peer> peer) {
 }
 
 GamePeer *Game::add_peer(GamePeer&& game_peer) {
+    ZoneScoped;
+
     auto peer = game_peer.peer.lock();
     if (!peer)
         return nullptr;
@@ -82,6 +87,8 @@ GamePeer *Game::add_peer(GamePeer&& game_peer) {
 }
 
 bool Game::remove_peer(const std::shared_ptr<Peer>& peer) {
+    ZoneScoped;
+
     if (!peer)
         return false;
 
@@ -133,6 +140,8 @@ restart:
 }
 
 bool Game::flood_peer(GamePeer *game_peer) {
+    ZoneScoped;
+
     // Send cached events to the new peer
     if (auto peer = game_peer->peer.lock()) {
         size_t count = 0;
@@ -165,6 +174,8 @@ bool Game::flood_peer(GamePeer *game_peer) {
 }
 
 GamePeer *Game::find_peer(int32_t actor_id) {
+    ZoneScoped;
+
     for (auto& game_peer : peers)
         if (game_peer.actor_id == actor_id)
             return &game_peer;
@@ -172,6 +183,8 @@ GamePeer *Game::find_peer(int32_t actor_id) {
 }
 
 GamePeer *Game::find_peer(const std::shared_ptr<Peer>& peer) {
+    ZoneScoped;
+
     for (auto& game_peer : peers)
         if (game_peer.peer.lock() == peer)
             return &game_peer;
@@ -179,6 +192,8 @@ GamePeer *Game::find_peer(const std::shared_ptr<Peer>& peer) {
 }
 
 void Game::broadcast_event(Event& event) {
+    ZoneScoped;
+
     // Serialize event once if not cached
     ser::EventMessage event_data{.event_code = event.code, .parameters = std::move(event.top_params)};
     event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
@@ -242,6 +257,8 @@ void Game::broadcast_event(Event& event) {
 }
 
 int16_t Game::validate_join(const std::string& user_id, size_t new_expected_users_count) const {
+    ZoneScoped;
+
     // Return error if game is closed
     if (!is_open)
         return ErrorCodes::Matchmaking::GameClosed;
@@ -277,6 +294,8 @@ int16_t Game::validate_join(const std::string& user_id, size_t new_expected_user
 }
 
 void Game::trigger_lobby_update() {
+    ZoneScoped;
+
     auto shared_this = shared_from_this();
     for (auto& handler : lobby->game_list_update_handlers)
         handler.game_change(shared_this);
@@ -292,6 +311,8 @@ void Game::trigger_lobby_update() {
     PROP_MAP_ENTRY(LobbyProperties, std::vector<std::string>, lobby_props, true)
 
 ser::Value Game::get_game_prop(const ser::Value& key) {
+    ZoneScoped;
+
     bool update_lobby = false;
 
     if (key.is<uint8_t>()) {
@@ -317,6 +338,8 @@ ser::Value Game::get_game_prop(const ser::Value& key) {
 }
 
 ser::Hashtable Game::get_lobby_game_props() {
+    ZoneScoped;
+
     ser::Hashtable fres;
     fres[GameProps::PlayerCount] = static_cast<uint8_t>(peers.size());
     fres[GameProps::IsOpen] = is_open;
@@ -330,6 +353,8 @@ ser::Hashtable Game::get_lobby_game_props() {
 }
 
 ser::Hashtable Game::get_game_props(bool no_custom) {
+    ZoneScoped;
+
     auto fres = no_custom ? ser::Hashtable{} : custom_props;
 #define PROP_MAP_ENTRY(game_param, type, var, updates_lobby) fres[GameProps::game_param] = static_cast<type>(var);
     PROP_MAP
@@ -340,6 +365,8 @@ ser::Hashtable Game::get_game_props(bool no_custom) {
 }
 
 ser::Hashtable Game::get_actor_props() {
+    ZoneScoped;
+
     ser::Hashtable fres;
     for (const auto& game_peer : peers)
         fres[game_peer.actor_id] = game_peer.actor_props;
@@ -347,6 +374,8 @@ ser::Hashtable Game::get_actor_props() {
 }
 
 void Game::insert_game_props(ser::Hashtable update) {
+    ZoneScoped;
+
     const bool delete_null = flags & GameFlags::DeleteNullProps;
     bool update_lobby = false;
 
@@ -378,6 +407,8 @@ void Game::insert_game_props(ser::Hashtable update) {
 }
 
 bool Game::expect_game_props(ser::Hashtable expected) {
+    ZoneScoped;
+
     bool ok = true;
 #define PROP_MAP_ENTRY(game_param, type, var, updates_lobby)                                                                                                   \
     if (expected.contains(GameProps::game_param))                                                                                                              \
@@ -402,6 +433,8 @@ bool Game::expect_game_props(ser::Hashtable expected) {
 }
 
 bool Game::insert_actor_props(int32_t actor_id, const ser::Hashtable& update) {
+    ZoneScoped;
+
     auto *game_peer = find_peer(actor_id);
     if (!game_peer)
         return false;
@@ -423,6 +456,8 @@ bool Game::insert_actor_props(int32_t actor_id, const ser::Hashtable& update) {
 }
 
 bool Game::expect_actor_props(int32_t actor_id, const ser::Hashtable& expected) {
+    ZoneScoped;
+
     const auto& actor_props = find_peer(actor_id)->actor_props;
     for (const auto& [key, value] : expected)
         if ((!actor_props.contains(key) && (!value.is_null() || !(flags & GameFlags::DeleteNullProps))) || actor_props.at(key) != value)
@@ -432,6 +467,8 @@ bool Game::expect_actor_props(int32_t actor_id, const ser::Hashtable& expected) 
 }
 
 bool Game::matches_filter(const ser::Value& event_data, const ser::Hashtable& filter) {
+    ZoneScoped;
+
     // If filter is empty, it's a match
     if (filter.empty())
         return true;

@@ -8,6 +8,7 @@
 
 #include <unordered_map>
 #include <utility>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 size_t LobbyIdHash::operator()(const LobbyId& k) const noexcept {
@@ -20,6 +21,8 @@ size_t LobbyIdHash::operator()(const LobbyId& k) const noexcept {
 App::App(ServerManager& server_manager, std::string_view id, std::string_view version) : server_manager(server_manager), id(id), version(version) {}
 
 std::shared_ptr<Lobby> App::get_lobby(LobbyId id) {
+    ZoneScoped;
+
     // Try to find lobby first
     auto res = lobbies_.find(id);
     if (res != lobbies_.end())
@@ -36,6 +39,8 @@ std::shared_ptr<Lobby> App::get_lobby(LobbyId id) {
 }
 
 std::shared_ptr<App> App::get(ServerManager& server_manager, const std::string& id, const std::string& version) {
+    ZoneScoped;
+
     {
         auto res = server_manager.apps.find({id, version});
         if (res != server_manager.apps.end()) {
@@ -59,6 +64,8 @@ std::shared_ptr<App> App::get(ServerManager& server_manager, const std::string& 
 }
 
 std::vector<std::shared_ptr<App>> App::get_all(ServerManager& server_manager) {
+    ZoneScoped;
+
     std::vector<std::shared_ptr<App>> fres;
     for (auto& [_, weak_app] : server_manager.apps)
         if (auto app = weak_app.lock())

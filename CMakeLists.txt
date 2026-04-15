@@ -21,7 +21,7 @@ option(LUXON_SERVER_TRACY_ON_DEMAND "Only collect tracy data with profiler serve
 set(WEB_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/web")
 
 # Apply single-threaded optimizations if strictly single-threaded
-if (NOT LUXON_SERVER_ENABLE_PLUGINS AND NOT WIN32)
+if (NOT LUXON_SERVER_ENABLE_PLUGINS AND NOT WIN32 AND NOT LUXON_SERVER_TRACY)
     add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU>:-fno-threadsafe-statics>)
     add_compile_definitions(thread_local=)
 endif()

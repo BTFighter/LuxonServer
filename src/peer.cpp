@@ -5,9 +5,12 @@
 #include "global.hpp"
 
 #include <luxon/visualizer.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 void Peer::send(const ser::ByteArray& payload, const enet::EnetSendOptions& opt) {
+    ZoneScoped;
+
 #ifndef NDEBUG
     log->trace("Sending message using mode {} on channel {}:", static_cast<int>(opt.mode), opt.channel);
     visualizer::print_ser_message(payload, 2, *protocol);

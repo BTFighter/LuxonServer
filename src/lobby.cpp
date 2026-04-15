@@ -9,9 +9,11 @@
 
 #include <memory>
 #include <regex>
+#include <format>
 #include <stdexcept>
 #include <commoncpp/utils.hpp>
 #include <luxon/common_codes.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 struct SQLFinalize {
@@ -25,6 +27,8 @@ struct SQLFinalize {
 };
 
 Lobby::Lobby(std::shared_ptr<App> app, std::string name, uint8_t type) : app(std::move(app)), name(std::move(name)), type(type) {
+    ZoneScoped;
+
     if (type == LobbyType::SqlLobby) {
         // Open database
         int status = sqlite3_open(":memory:", &sql);
@@ -54,6 +58,8 @@ Lobby::Lobby(std::shared_ptr<App> app, std::string name, uint8_t type) : app(std
 Lobby::~Lobby() noexcept { sqlite3_close_v2(sql); }
 
 std::shared_ptr<Game> Lobby::create_game(std::string id, bool or_get) {
+    ZoneScoped;
+
     auto res = games.find(id);
     if (res != games.end())
         return or_get ? res->second.lock() : nullptr;
@@ -80,6 +86,8 @@ std::shared_ptr<Game> Lobby::create_game(std::string id, bool or_get) {
 }
 
 size_t Lobby::get_peer_count() const {
+    ZoneScoped;
+
     size_t fres = 0;
     for (auto& [name, weak_game] : games)
         if (auto game = weak_game.lock())
@@ -88,6 +96,8 @@ size_t Lobby::get_peer_count() const {
 }
 
 size_t Lobby::get_master_peer_count() const {
+    ZoneScoped;
+
     size_t fres = 0;
     for (auto& [name, weak_game] : games)
         if (auto game = weak_game.lock())
@@ -95,10 +105,9 @@ size_t Lobby::get_master_peer_count() const {
     return fres;
 }
 
-#include <regex>
-// Note: Make sure to include <regex> and <format> at the top of your file.
-
 std::vector<std::string> Lobby::query_lobbies(const std::string& sql_queries) {
+    ZoneScoped;
+
     // Split into list of queries
     std::vector<std::string_view> queries = common::utils::str_split(sql_queries, ';', 3);
     if (queries.empty())

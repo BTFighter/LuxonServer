@@ -13,6 +13,7 @@
 #include <format>
 #include <stdexcept>
 #include <luxon/ser_types.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 static const luxon::ser::Value& get_prop_key(int index) {
@@ -46,6 +47,8 @@ static void set_vtab_error(sqlite3_vtab *pVTab, const std::exception& e) {
 }
 
 static int vtConnect(sqlite3 *db, void *pAux, int /*argc*/, const char *const * /*argv*/, sqlite3_vtab **ppVTab, char **pzErr) {
+    ZoneScoped;
+
     try {
         if (ppVTab)
             *ppVTab = nullptr;
@@ -78,6 +81,8 @@ static int vtConnect(sqlite3 *db, void *pAux, int /*argc*/, const char *const * 
 }
 
 static int vtDisconnect(sqlite3_vtab *pVTab) {
+    ZoneScoped;
+
     try {
         auto *v = reinterpret_cast<LobbyVTab *>(pVTab);
         delete v;
@@ -88,6 +93,8 @@ static int vtDisconnect(sqlite3_vtab *pVTab) {
 }
 
 static int vtBestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
+    ZoneScoped;
+
     try {
         int argvIndex = 1;
         int idxNum = 0;
@@ -147,6 +154,8 @@ static int vtBestIndex(sqlite3_vtab *pVTab, sqlite3_index_info *pIdxInfo) {
 }
 
 static int vtOpen(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor) {
+    ZoneScoped;
+
     try {
         if (ppCursor)
             *ppCursor = nullptr;
@@ -166,6 +175,8 @@ static int vtOpen(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor) {
 }
 
 static int vtClose(sqlite3_vtab_cursor *cur) {
+    ZoneScoped;
+
     try {
         auto *c = reinterpret_cast<LobbyCursor *>(cur);
         delete c;
@@ -176,6 +187,8 @@ static int vtClose(sqlite3_vtab_cursor *cur) {
 }
 
 static int vtFilter(sqlite3_vtab_cursor *cur, int idxNum, const char *idxStr, int argc, sqlite3_value **argv) {
+    ZoneScoped;
+
     auto *pCur = reinterpret_cast<LobbyCursor *>(cur);
     auto *pVTab = reinterpret_cast<LobbyVTab *>(cur->pVtab);
 
@@ -326,6 +339,8 @@ static int vtEof(sqlite3_vtab_cursor *cur) {
 }
 
 static int vtColumn(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int i) {
+    ZoneScoped;
+
     try {
         auto *pCur = reinterpret_cast<LobbyCursor *>(cur);
         if (pCur->current_index >= pCur->games_snapshot.size()) {
@@ -387,6 +402,8 @@ static int vtColumn(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int i) {
 }
 
 static int vtRowid(sqlite3_vtab_cursor *cur, sqlite3_int64 *pRowid) {
+    ZoneScoped;
+
     try {
         auto *pCur = reinterpret_cast<LobbyCursor *>(cur);
 

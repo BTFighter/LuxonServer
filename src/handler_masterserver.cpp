@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <luxon/ser_interface.hpp>
 #include <luxon/common_codes.hpp>
+#include <tracy/Tracy.hpp>
 
 // This is a very valuable ressource: https://doc.photonengine.com/realtime/current/lobby-and-matchmaking/matchmaking-and-lobby (2026-02-12)
 // http://web.archive.org/web/20260212131901/https://doc.photonengine.com/realtime/current/lobby-and-matchmaking/matchmaking-and-lobby
@@ -56,6 +57,8 @@ using LobbyStats = Model<Parameter<std::string, DictKeyCodes::AuthAndLobby::Lobb
 } // namespace models
 
 void MasterServerHandler::HandleSlowUpdate() {
+    ZoneScoped;
+
     if (wants_app_stats_ && last_app_stats_.get() > 8000) {
         send_app_stats();
         last_app_stats_.reset();
@@ -65,6 +68,8 @@ void MasterServerHandler::HandleSlowUpdate() {
 }
 
 void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+    ZoneScoped;
+
     if (cmd_header.channel_id != 0)
         return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
 
@@ -548,6 +553,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 }
 
 std::expected<std::shared_ptr<Lobby>, ser::OperationResponseMessage> MasterServerHandler::get_requested_lobby(const ser::OperationRequestMessage& req) {
+    ZoneScoped;
+
     const auto lobby_id = models::LobbyId::decode(req);
     if (!lobby_id)
         return std::unexpected(lobby_id.error());
@@ -560,6 +567,8 @@ std::expected<std::shared_ptr<Lobby>, ser::OperationResponseMessage> MasterServe
 }
 
 void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
+    ZoneScoped;
+
     if (lobby->type == LobbyType::Default) {
         joined_lobby_.emplace(
             std::move(lobby),
@@ -604,6 +613,8 @@ void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
 }
 
 void MasterServerHandler::send_app_stats() {
+    ZoneScoped;
+
     ser::EventMessage event;
 
     event.event_code = EventCodes::AppStats;
@@ -622,6 +633,8 @@ void MasterServerHandler::send_app_stats() {
 }
 
 ser::Dictionary MasterServerHandler::get_lobby_stats(std::function<bool(const Lobby&)> lobby_filter) {
+    ZoneScoped;
+
     ser::Dictionary fres;
 
     auto& peer_count_arr = (fres[DictKeyCodes::LoadBalancing::PeerCount] = ser::ObjectArray()).get<ser::ObjectArray>();
@@ -646,6 +659,8 @@ ser::Dictionary MasterServerHandler::get_lobby_stats(std::function<bool(const Lo
 }
 
 void MasterServerHandler::send_lobby_stats() {
+    ZoneScoped;
+
     ser::EventMessage event;
 
     event.event_code = EventCodes::LobbyStats;
@@ -655,6 +670,8 @@ void MasterServerHandler::send_lobby_stats() {
 }
 
 ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function<bool(const Game&)> game_filter) {
+    ZoneScoped;
+
     auto fres = std::make_shared<ser::Hashtable>();
 
     if (!joined_lobby_.has_value())
@@ -705,6 +722,8 @@ ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function
 }
 
 void MasterServerHandler::send_game_list() {
+    ZoneScoped;
+
     if (!joined_lobby_)
         return;
 

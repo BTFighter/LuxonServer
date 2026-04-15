@@ -15,6 +15,7 @@
 #include <luxon/internal_codes.hpp>
 #include <luxon/common_codes.hpp>
 #include <magic_enum/magic_enum.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 namespace {
@@ -78,6 +79,8 @@ void HandlerBase::HandleENetConnectionStateChange(enet::EnetConnectionState stat
 }
 
 void HandlerBase::HandleENetCommand(const enet::EnetCommand& cmd) {
+    ZoneScoped;
+
     // Try to parse header
     ser::Message message;
     auto expected_message = proto_->Deserialize(cmd.payload);
@@ -109,6 +112,8 @@ void HandlerBase::HandleENetCommand(const enet::EnetCommand& cmd) {
 }
 
 void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::EnetCommandHeader& cmd_header) {
+    ZoneScoped;
+
     // Check if init request
     if (request.path == "/" && request.method == "POST" && request.query_params.contains("init")) {
         // Translate to fake init request
@@ -162,6 +167,8 @@ void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::Enet
 }
 
 void HandlerBase::HandleInitRequest(const ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header) {
+    ZoneScoped;
+
     // Try to create new protocol implementation for given version
     auto protocol = ser::IProtocol::make(req.protocol_major, req.protocol_minor);
 
@@ -177,6 +184,8 @@ void HandlerBase::HandleInitRequest(const ser::InitMessage& req, const enet::Ene
 }
 
 void HandlerBase::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+    ZoneScoped;
+
     // Only answer unknown operations on channel 0
     if (cmd_header.channel_id != 0)
         return;
@@ -198,6 +207,8 @@ void HandlerBase::HandleOperationRequest(const ser::OperationRequestMessage& req
 
 void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationRequestMessage& req, bool is_encrypted,
                                                  const enet::EnetCommandHeader& cmd_header) {
+    ZoneScoped;
+
     if (cmd_header.channel_id != 0)
         return;
 

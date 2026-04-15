@@ -12,6 +12,7 @@
 #include <random>
 #include <luxon/ser_interface.hpp>
 #include <luxon/common_codes.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 namespace models {
@@ -36,6 +37,8 @@ std::string generate_user_id() {
 
 ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& peer, const ser::OperationRequestMessage& req,
                                            const enet::EnetCommandHeader& cmd_header, bool refresh_token) {
+    ZoneScoped;
+
     // Decide on algorithm based on the presence of the Token parameter
     const bool token_auth = req.parameters.contains(DictKeyCodes::LoadBalancing::Token);
 

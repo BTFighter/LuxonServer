@@ -27,6 +27,7 @@
 #include <luxon/ser_types.hpp>
 #include <luxon/enet_peer.hpp>
 #include <commoncpp/utils.hpp>
+#include <tracy/Tracy.hpp>
 
 #ifdef _WIN32
 #define CLOSE_SOCKET closesocket
@@ -79,6 +80,8 @@ std::string bytes_to_hex(const std::vector<uint8_t>& bytes) {
 }
 
 void url_decode_in_place(std::string& path) {
+    ZoneScoped;
+
     std::string result;
     result.reserve(path.size());
     for (size_t i = 0; i < path.size(); ++i) {
@@ -104,6 +107,8 @@ namespace json_conv {
 json photon_val_to_json(const Value& val);
 
 json photon_dict_to_json(const Dictionary& dict) {
+    ZoneScoped;
+
     json j = json::object();
     for (const auto& [k, v] : dict)
         j[std::to_string(k)] = photon_val_to_json(v);
@@ -111,6 +116,8 @@ json photon_dict_to_json(const Dictionary& dict) {
 }
 
 json photon_hash_to_json(const Hashtable& hash) {
+    ZoneScoped;
+
     json j = json::object();
     for (const auto& [k, v] : hash) {
         std::string key_str;
@@ -130,6 +137,8 @@ json photon_hash_to_json(const Hashtable& hash) {
 }
 
 json photon_val_to_json(const Value& val) {
+    ZoneScoped;
+
     return std::visit(
         [](auto&& arg) -> json {
             using T = std::decay_t<decltype(arg)>;
@@ -192,6 +201,8 @@ HttpServer::~HttpServer() {
 }
 
 bool HttpServer::bind(const std::string& address, uint16_t port) {
+    ZoneScoped;
+
     server_fd_ = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd_ < 0)
         return false;
@@ -226,6 +237,8 @@ void HttpServer::service(const std::vector<socket_t>& fds) {
 #else
 void HttpServer::service() {
 #endif
+    ZoneScoped;
+
     if (server_fd_ == -1)
         return;
 
@@ -307,11 +320,15 @@ void HttpServer::service() {
 }
 
 void HttpServer::queue_data(HttpClient& client, std::string_view data, bool close_connection) {
+    ZoneScoped;
+
     client.write_buffer.append(data);
     client.close_after_write = close_connection;
 }
 
 void HttpServer::handle_client_data(HttpClient& client) {
+    ZoneScoped;
+
     auto result = luxon::parse_raw_http(client.request_buffer);
     if (!result.has_value()) {
         send_error(client, 400, "Bad Request");
@@ -376,6 +393,8 @@ void HttpServer::send_error(HttpClient& client, int status, std::string_view mes
 // Helpers
 
 std::shared_ptr<App> HttpServer::find_app_by_id(std::string_view app_id) {
+    ZoneScoped;
+
     const auto apps = App::get_all(server_manager_);
     for (const auto& app : apps)
         if (app->id == app_id)
@@ -384,6 +403,8 @@ std::shared_ptr<App> HttpServer::find_app_by_id(std::string_view app_id) {
 }
 
 Lobby *HttpServer::find_lobby(App *app, std::string_view name, uint8_t type) {
+    ZoneScoped;
+
     const auto lobbies = app->get_lobbies();
     auto res = lobbies.find({name, type});
     if (res == lobbies.end())
@@ -392,6 +413,8 @@ Lobby *HttpServer::find_lobby(App *app, std::string_view name, uint8_t type) {
 }
 
 Lobby *HttpServer::find_lobby(App *app, std::string_view name) {
+    ZoneScoped;
+
     const uint8_t type = name.back() - '0';
     name = name.substr(0, name.size() - 1);
     return find_lobby(app, name, type);
@@ -400,6 +423,8 @@ Lobby *HttpServer::find_lobby(App *app, std::string_view name) {
 // Routing
 
 json HttpServer::route_request(std::string_view method, std::string path) {
+    ZoneScoped;
+
     url_decode_in_place(path);
 
     auto segs = common::utils::str_split(path, '/');

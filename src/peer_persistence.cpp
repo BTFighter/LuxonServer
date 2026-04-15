@@ -8,6 +8,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 namespace {
@@ -23,6 +24,8 @@ std::string create_token(size_t length = 32) {
 } // namespace
 
 void store_persistent_peer(ServerManager& server_manager, std::unique_ptr<PeerPersistent>&& pp) {
+    ZoneScoped;
+
     server_manager.add_scheduled_task(30000, [&server_manager, token = string_hash(pp->token)]() {
         // If persistent peer has not been loaded back within 30 seconds, get rid of it
         std::erase_if(server_manager.peer_persistent_data, [token](const auto& v) { return string_hash(v->token) == token; });
@@ -31,6 +34,8 @@ void store_persistent_peer(ServerManager& server_manager, std::unique_ptr<PeerPe
 }
 
 std::unique_ptr<PeerPersistent> load_persistent_peer(ServerManager& server_manager, std::string_view token, bool refresh_token) {
+    ZoneScoped;
+
     for (auto it = server_manager.peer_persistent_data.begin(); it != server_manager.peer_persistent_data.end(); ++it) {
         if (it->get()->token != token)
             continue;
@@ -46,6 +51,8 @@ std::unique_ptr<PeerPersistent> load_persistent_peer(ServerManager& server_manag
 }
 
 std::unique_ptr<PeerPersistent> create_persistent_peer() {
+    ZoneScoped;
+
     auto fres = std::make_unique<PeerPersistent>();
     fres->token = create_token();
     return fres;

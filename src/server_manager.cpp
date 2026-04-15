@@ -320,6 +320,8 @@ bool ServerManager::delay(unsigned int milliseconds) {
 #endif
 
 const std::string& ServerManager::get_endpoint_of(ServerType server_type, ServerProtocol server_proto) {
+    ZoneScoped;
+
     std::vector<const std::string *> candidates;
     candidates.reserve(endpoints.size());
 
@@ -340,6 +342,8 @@ const std::string& ServerManager::get_endpoint_of(ServerType server_type, Server
 }
 
 void ServerManager::run_scheduled_tasks() {
+    ZoneScoped;
+
     // Check if queue is empty first to avoid segfaults on top()
     if (scheduled_tasks_.empty())
         return;
@@ -362,6 +366,8 @@ void ServerManager::run() {
 }
 
 bool ServerManager::run_once() {
+    ZoneScoped;
+
     {
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Start idle performance timer
@@ -480,6 +486,8 @@ bool ServerManager::run_once() {
 }
 
 void ServerManager::setup() {
+    ZoneScoped;
+
     enet::EnetPeerConfig cfg;
     cfg.time_base = enet::EnetPeer::create_time_base();
     cfg.time_ping_interval_ms = 1000;
@@ -515,6 +523,8 @@ void ServerManager::setup() {
 
             // Install handlers
             enetPeer->on_state_changed = [this, handler = handler.get()](enet::EnetConnectionState state) {
+                ZoneScopedN("on_state_changed");
+
                 try {
                     handler->HandleENetConnectionStateChange(state);
                 } catch (const std::exception& e) {
@@ -530,6 +540,8 @@ void ServerManager::setup() {
             };
 
             enetPeer->on_payload_command = [this, handler = handler_ptr](const enet::EnetCommand& cmd) {
+                ZoneScopedN("on_payload_command");
+
                 auto& peer = handler->get_peer();
 #ifndef NDEBUG
                 peer->log->trace("Received message using mode {} on channel {}:", static_cast<int>(enet::FlagsToEnetDeliveryMode(cmd.header.flags)),
@@ -551,13 +563,13 @@ void ServerManager::setup() {
                              });
 #endif
 
-                         try {
-                             handler->HandleENetCommand(cmd);
-                         } catch (const std::exception& e) {
-                             auto& peer = *handler->get_peer();
-                             peer.log->critical("Disconnecting due to uncaught exception in ENet command handler: {}", e.what());
-                             peer.disconnect();
-                         }
+                try {
+                    handler->HandleENetCommand(cmd);
+                } catch (const std::exception& e) {
+                    auto& peer = *handler->get_peer();
+                    peer.log->critical("Disconnecting due to uncaught exception in ENet command handler: {}", e.what());
+                    peer.disconnect();
+                }
 
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
                      }))->resume()) {

@@ -14,6 +14,7 @@
 #include <ranges>
 #include <luxon/ser_interface.hpp>
 #include <luxon/common_codes.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 namespace models {
@@ -43,6 +44,8 @@ using ChangeInterestGroups = Model<Parameter<ser::ByteArray, RoutingAndEvents::A
 } // namespace models
 
 void GameServerHandler::HandleDisconnect() {
+    ZoneScoped;
+
     if (auto& game = get_game()) {
         // Cleanup cache if enabled
         if (game->flags & DictKeyCodes::RoutingAndEvents::CleanupCacheOnLeave)
@@ -85,6 +88,8 @@ void GameServerHandler::HandleDisconnect() {
 }
 
 void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+    ZoneScoped;
+
     const auto ensure_is_master = [&]() {
         const bool is_master = game_peer_ && game_peer_->actor_id == get_game()->master_actor || get_game()->peers.size() == 0;
         if (!is_master) {

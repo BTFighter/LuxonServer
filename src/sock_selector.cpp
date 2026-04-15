@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "sock_selector.hpp"
+
 #include <algorithm>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 namespace {
@@ -41,6 +43,8 @@ bool SockSelector::run(unsigned int timeout_ms) {
 #ifdef __linux__
     int t = (timeout_ms == 0) ? -1 : static_cast<int>(timeout_ms);
     int nfds = epoll_wait(epoll_fd, events.data(), events.size(), t);
+
+    ZoneScoped;
 
     if (nfds < 0) {
         readable_socks.clear();
@@ -81,6 +85,8 @@ bool SockSelector::run(unsigned int timeout_ms) {
 }
 
 bool SockSelector::add_read_fd(socket_t fd) {
+    ZoneScoped;
+
 #ifdef __linux__
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
@@ -108,6 +114,8 @@ bool SockSelector::add_read_fd(socket_t fd) {
 }
 
 void SockSelector::remove_read_fd(socket_t fd) {
+    ZoneScoped;
+
 #ifdef __linux__
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
 #else

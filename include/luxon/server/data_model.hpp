@@ -27,6 +27,7 @@
 #include <luxon/common_codes.hpp>
 #include <luxon/ser_types.hpp>
 #include <magic_enum/magic_enum.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server::models {
 namespace ser = luxon::ser;
@@ -480,6 +481,8 @@ private:
 public:
     [[nodiscard]]
     static std::expected<ModelView, ser::OperationResponseMessage> decode(const ser::OperationRequestMessage& req) {
+        ZoneScoped;
+
         ModelView view{};
         view.reset_defaults();
 
@@ -593,6 +596,8 @@ template <ParameterSpec... Ps> struct Model : private Field<Ps>... {
 
     [[nodiscard]]
     std::expected<ser::ParameterList, std::string> encode() const {
+        ZoneScoped;
+
         ser::ParameterList parameters{};
         std::optional<std::string> err;
 
