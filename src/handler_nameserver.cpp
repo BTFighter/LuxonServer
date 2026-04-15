@@ -11,11 +11,11 @@
 #include <tracy/Tracy.hpp>
 
 namespace server {
-void NameServerHandler::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     ZoneScoped;
 
     if (cmd_header.channel_id != 0)
-        return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
+        return HandlerBase::HandleOperationRequest(std::move(req), is_encrypted, cmd_header);
 
     if (!peer_->is_authenticated()) {
         switch (req.operation_code) {
@@ -52,6 +52,6 @@ void NameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
         }
     }
 
-    return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
+    return HandlerBase::HandleOperationRequest(std::move(req), is_encrypted, cmd_header);
 }
 } // namespace server

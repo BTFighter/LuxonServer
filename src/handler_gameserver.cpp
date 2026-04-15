@@ -87,7 +87,7 @@ void GameServerHandler::HandleDisconnect() {
     }
 }
 
-void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     ZoneScoped;
 
     const auto ensure_is_master = [&]() {
@@ -112,7 +112,7 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
 
     if (!peer_->is_authenticated()) {
         if (cmd_header.channel_id != 0)
-            return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
+            return HandlerBase::HandleOperationRequest(std::move(req), is_encrypted, cmd_header);
 
         switch (req.operation_code) {
 
@@ -149,7 +149,6 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
                 return;
             }
 
-            auto data_param = req.parameters[Data];
             const auto cache_op = params->get<Cache>();
 
             // Build event
@@ -163,13 +162,12 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
                 event.receivers = *actors | std::ranges::to<std::unordered_set>();
             else
                 event.receivers = params->get<DictKeyCodes::RoutingAndEvents::ReceiverGroup>();
-            event.data = std::move(data_param);
 
             // Call into plugins
             GAME_PLUGINS_INVOKE({
                 OnRaiseEventCallInfo info{.raiser = game_peer_, .event = event, .cache_op = cache_op};
                 const Result res = game->execute_plugin_chain(&PluginBase::OnRaiseEvent, req, info);
-
+                
                 if (res == Result::Cancel)
                     return;
                 if (res == Result::Fail) {
@@ -179,6 +177,9 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
                     return;
                 }
             });
+
+            // Now move data so we don't steal it from the plugin
+            event.data = std::move(req.parameters[Data]);
 
             // Make sure client isn't attempting to raise a Photon event
             if (event.code > 220) {
@@ -197,8 +198,8 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
                     filter_senders = *actors;
 
                 ser::Hashtable filter_data;
-                if (data_param.is<ser::HashtablePtr>())
-                    if (auto ptr = data_param.get<ser::HashtablePtr>())
+                if (event.data.is<ser::HashtablePtr>())
+                    if (auto ptr = event.data.get<ser::HashtablePtr>())
                         filter_data = *ptr;
 
                 // Event code 0 is wildcard
@@ -260,7 +261,7 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
         }
 
         if (cmd_header.channel_id != 0)
-            return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
+            return HandlerBase::HandleOperationRequest(std::move(req), is_encrypted, cmd_header);
 
         switch (req.operation_code) {
 
@@ -576,6 +577,6 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
         }
     }
 
-    return HandlerBase::HandleOperationRequest(req, is_encrypted, cmd_header);
+    return HandlerBase::HandleOperationRequest(std::move(req), is_encrypted, cmd_header);
 }
 } // namespace server

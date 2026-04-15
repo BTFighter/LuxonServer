@@ -82,11 +82,14 @@ void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
     ZoneScoped;
 
     // Try to parse header
-    auto expected_message = proto_->Deserialize(cmd.payload);
+    auto expected_message = ({
+        ZoneScopedN("DeserializeENetCommand");
+        proto_->Deserialize(cmd.payload);
+    });
     if (!expected_message) {
         // Try to parse as HTTP request
         if (auto expected_request = luxon::parse_raw_http(std::string_view{reinterpret_cast<const char *>(cmd.payload.data()), cmd.payload.size()})) {
-            HandleHTTPRequest(*expected_request, cmd.header);
+            HandleHTTPRequest(std::move(*expected_request), cmd.header);
         } else {
             // We don't know what this is!
             peer_->log->warn("Invalid packet ({} bytes in length) received: {}", cmd.payload.size(), expected_message.error().message);
@@ -100,18 +103,18 @@ void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
     cmd.payload.clear();
 
     if (auto *req = std::get_if<ser::InitMessage>(&message))
-        return HandleInitRequest(*req, cmd.header);
+        return HandleInitRequest(std::move(*req), cmd.header);
 
     if (auto *req = std::get_if<ser::OperationRequestMessage>(&message))
-        return HandleOperationRequest(*req, message.encrypted, cmd.header);
+        return HandleOperationRequest(std::move(*req), message.encrypted, cmd.header);
 
     if (auto *req = std::get_if<ser::InternalOperationRequestMessage>(&message))
-        return HandleInternalOperationRequest(*req, message.encrypted, cmd.header);
+        return HandleInternalOperationRequest(std::move(*req), message.encrypted, cmd.header);
 
     peer_->log->warn("Invalid message type {} received", message.index());
 }
 
-void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleHTTPRequest(HttpRequest&& request, const enet::EnetCommandHeader& cmd_header) {
     ZoneScoped;
 
     // Check if init request
@@ -147,7 +150,7 @@ void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::Enet
             }
 
             // Pass the synthesized init request to our handler
-            HandleInitRequest(photon_req, cmd_header);
+            HandleInitRequest(std::move(photon_req), cmd_header);
         }
 
         // Translate to fake authenticate operation request
@@ -157,7 +160,7 @@ void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::Enet
 
             ser::OperationRequestMessage photon_req{.operation_code = OpCodes::Auth::AuthenticateOnce};
             photon_req.parameters[DictKeyCodes::LoadBalancing::Token] = token;
-            HandleOperationRequest(photon_req, false, cmd_header);
+            HandleOperationRequest(std::move(photon_req), false, cmd_header);
         }
     } else {
         // We don't know what this HTTP request is!
@@ -166,7 +169,7 @@ void HandlerBase::HandleHTTPRequest(const HttpRequest& request, const enet::Enet
     }
 }
 
-void HandlerBase::HandleInitRequest(const ser::InitMessage& req, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleInitRequest(ser::InitMessage&& req, const enet::EnetCommandHeader& cmd_header) {
     ZoneScoped;
 
     // Try to create new protocol implementation for given version
@@ -183,7 +186,7 @@ void HandlerBase::HandleInitRequest(const ser::InitMessage& req, const enet::Ene
     }
 }
 
-void HandlerBase::HandleOperationRequest(const ser::OperationRequestMessage& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleOperationRequest(ser::OperationRequestMessage&& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     ZoneScoped;
 
     // Only answer unknown operations on channel 0
@@ -205,8 +208,7 @@ void HandlerBase::HandleOperationRequest(const ser::OperationRequestMessage& req
     peer_->log->warn("Client sent operation request with unknown opcode: {}", req.operation_code);
 }
 
-void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationRequestMessage& req, bool is_encrypted,
-                                                 const enet::EnetCommandHeader& cmd_header) {
+void HandlerBase::HandleInternalOperationRequest(ser::InternalOperationRequestMessage&& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) {
     ZoneScoped;
 
     if (cmd_header.channel_id != 0)
@@ -232,8 +234,7 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
         resp.operation_code = ICodes::IOpPing;
         resp.return_code = ErrorCodes::Core::Ok;
 
-        const ser::Value& client_ts = req.parameters[ICodes::IKeyClientTimestamp];
-        resp.parameters[ICodes::IKeyClientTimestamp] = client_ts;
+        resp.parameters[ICodes::IKeyClientTimestamp] = std::move(req.parameters[ICodes::IKeyClientTimestamp]);
         resp.parameters[ICodes::IKeyServerTimestamp] = static_cast<int32_t>(peer_->enet_peer->get_server_time());
 
         send(proto_->Serialize(resp));
