@@ -194,7 +194,7 @@ GamePeer *Game::find_peer(const std::shared_ptr<Peer>& peer) {
 void Game::broadcast_event(Event& event) {
     ZoneScoped;
 
-    // Serialize event once if not cached
+    // Build event message
     ser::EventMessage event_data{.event_code = event.code, .parameters = std::move(event.top_params)};
     event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
     if (!event.data.is_null())
