@@ -78,6 +78,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 
         case OpCodes::Auth::Authenticate:
         case OpCodes::Auth::AuthenticateOnce: {
+            ZoneScopedN("HandleOperationRequest_Authenticate");
+
             const auto params = models::ClientSettings::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));
@@ -116,6 +118,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         switch (req.operation_code) {
 
         case OpCodes::Lobby::JoinLobby: {
+            ZoneScopedN("HandleOperationRequest_JoinLobby");
+
             // Get lobby
             auto joined_lobby = get_requested_lobby(req);
             if (!joined_lobby) {
@@ -135,6 +139,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Lobby::LeaveLobby: {
+            ZoneScopedN("HandleOperationRequest_LeaveLobby");
+
             // Try to leave lobby
             std::shared_ptr<Lobby> lobby;
             if (joined_lobby_.has_value()) {
@@ -153,6 +159,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Lobby::LobbyStats: {
+            ZoneScopedN("HandleOperationRequest_LobbyStats");
+
             const auto params = models::LobbyStats::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));
@@ -179,6 +187,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Lobby::GetGameList: {
+            ZoneScopedN("HandleOperationRequest_GetGameList");
+
             const auto params = models::SqlQuery::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));
@@ -228,6 +238,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Matchmaking::CreateGame: {
+            ZoneScopedN("HandleOperationRequest_CreateGame");
+
             const auto params = models::CreateGame::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));
@@ -276,6 +288,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Matchmaking::JoinGame: {
+            ZoneScopedN("HandleOperationRequest_JoinGame");
+
             const auto params = models::JoinGame::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));
@@ -354,6 +368,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Matchmaking::JoinRandomGame: {
+            ZoneScopedN("HandleOperationRequest_JoinRandomGame");
+
             const auto params = models::JoinRandomGame::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));
@@ -484,6 +500,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::RpcAndMisc::Settings: {
+            ZoneScopedN("HandleOperationRequest_Settings");
+
             const auto params = models::ClientSettings::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));
@@ -498,6 +516,8 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
         }
 
         case OpCodes::Social::FindFriends: {
+            ZoneScopedN("HandleOperationRequest_FindFriends");
+
             const auto params = models::FindFriends::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));

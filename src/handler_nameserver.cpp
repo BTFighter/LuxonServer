@@ -22,6 +22,8 @@ void NameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
 
         case OpCodes::Auth::Authenticate:
         case OpCodes::Auth::AuthenticateOnce: {
+            ZoneScopedN("HandleOperationRequest_Authenticate");
+
             // Try to authenticate
             auto resp = authenticate(server_manager_, *peer_, req, cmd_header);
 
@@ -37,6 +39,8 @@ void NameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
         }
 
         case OpCodes::RpcAndMisc::GetRegions: {
+            ZoneScopedN("HandleOperationRequest_GetRegions");
+
             // Give dummy response  TODO: Give real response
             ser::OperationResponseMessage resp{.operation_code = OpCodes::RpcAndMisc::GetRegions, .return_code = 0};
             resp.parameters[DictKeyCodes::AuthAndLobby::Region] = std::vector<std::string>{"eu"};

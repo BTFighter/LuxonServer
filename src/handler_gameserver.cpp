@@ -118,6 +118,8 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
 
         case OpCodes::Auth::Authenticate:
         case OpCodes::Auth::AuthenticateOnce: {
+            ZoneScopedN("HandleOperationRequest_Authenticate");
+
             // Try to authenticate
             auto resp = authenticate(server_manager_, *peer_, req, cmd_header, false);
 
@@ -133,6 +135,8 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
     } else if (auto game = get_game()) {
 
         if (req.operation_code == OpCodes::Lite::RaiseEvent) {
+            ZoneScopedN("HandleOperationRequest_RaiseEvent");
+
             using namespace DictKeyCodes::RoutingAndEvents;
             using DictKeyCodes::GameAndActor::ActorList;
 
@@ -262,6 +266,8 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
 
         case OpCodes::Matchmaking::CreateGame:
         case OpCodes::Matchmaking::JoinGame: {
+            ZoneScopedN("HandleOperationRequest_JoinGame");
+
             // Common validation
             if (!ensure_joined_state(false))
                 return;
@@ -441,6 +447,8 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
         }
 
         case OpCodes::Lite::Leave: {
+            ZoneScopedN("HandleOperationRequest_Leave");
+
             // Call into plugins
             GAME_PLUGINS_INVOKE({
                 OnLeaveGameCallInfo info{.leaver = game_peer_};
@@ -466,6 +474,8 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
         }
 
         case OpCodes::Lite::SetProperties: {
+            ZoneScopedN("HandleOperationRequest_SetProperties");
+
             if (!ensure_joined_state())
                 return;
 
@@ -547,6 +557,8 @@ void GameServerHandler::HandleOperationRequest(const ser::OperationRequestMessag
         }
 
         case OpCodes::Lite::ChangeInterestGroups: {
+            ZoneScopedN("HandleOperationRequest_ChangeInterestGroups");
+
             const auto params = models::ChangeInterestGroups::decode(req);
             if (!params) {
                 send(proto_->Serialize(params.error()));

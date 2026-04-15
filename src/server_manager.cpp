@@ -390,6 +390,8 @@ bool ServerManager::run_once() {
     }
 
     {
+        ZoneScopedN("run_once_busy");
+
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Start busy performance timer
         const auto start_time = std::chrono::steady_clock::now();
@@ -426,6 +428,7 @@ bool ServerManager::run_once() {
 #endif
         for (auto& [port, server] : servers_) {
             try {
+                ZoneScopedN("service_servers");
 #ifndef LUXON_SERVER_POLL
                 if (std::ranges::contains(readable_socks, server.native_handle()))
 #endif
@@ -439,6 +442,7 @@ bool ServerManager::run_once() {
 
         // Trigger updates
         for (auto& connection : connections_) {
+            ZoneScopedN("service_clients");
             try {
                 connection->HandleUpdate();
             } catch (const std::exception& e) {
@@ -450,6 +454,7 @@ bool ServerManager::run_once() {
 
         if (slow_update) {
             for (auto& connection : connections_) {
+                ZoneScopedN("service_slow_updates");
                 try {
                     connection->HandleSlowUpdate();
                 } catch (const std::exception& e) {
@@ -523,8 +528,6 @@ void ServerManager::setup() {
 
             // Install handlers
             enetPeer->on_state_changed = [this, handler = handler.get()](enet::EnetConnectionState state) {
-                ZoneScopedN("on_state_changed");
-
                 try {
                     handler->HandleENetConnectionStateChange(state);
                 } catch (const std::exception& e) {
@@ -540,8 +543,6 @@ void ServerManager::setup() {
             };
 
             enetPeer->on_payload_command = [this, handler = handler_ptr](const enet::EnetCommand& cmd) {
-                ZoneScopedN("on_payload_command");
-
                 auto& peer = handler->get_peer();
 #ifndef NDEBUG
                 peer->log->trace("Received message using mode {} on channel {}:", static_cast<int>(enet::FlagsToEnetDeliveryMode(cmd.header.flags)),
@@ -563,13 +564,13 @@ void ServerManager::setup() {
                              });
 #endif
 
-                try {
-                    handler->HandleENetCommand(cmd);
-                } catch (const std::exception& e) {
-                    auto& peer = *handler->get_peer();
-                    peer.log->critical("Disconnecting due to uncaught exception in ENet command handler: {}", e.what());
-                    peer.disconnect();
-                }
+                         try {
+                             handler->HandleENetCommand(cmd);
+                         } catch (const std::exception& e) {
+                             auto& peer = *handler->get_peer();
+                             peer.log->critical("Disconnecting due to uncaught exception in ENet command handler: {}", e.what());
+                             peer.disconnect();
+                         }
 
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
                      }))->resume()) {

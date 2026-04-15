@@ -213,6 +213,8 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
         return;
 
     if (req.operation_code == ICodes::IOpInitEncryption) {
+        ZoneScopedN("HandleInternalOperationRequest_IOpInitEncryption");
+
         // Answer crypto handshake
         auto expected_response = proto_->HandleInitEncryptionRequest(req);
         if (!expected_response) {
@@ -223,6 +225,8 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
 
         peer_->log->info("Established encryption");
     } else if (req.operation_code == ICodes::IOpPing) {
+        ZoneScopedN("HandleInternalOperationRequest_IOpPing");
+
         // Answer internal pings
         ser::InternalOperationResponseMessage resp;
         resp.operation_code = ICodes::IOpPing;
@@ -234,10 +238,12 @@ void HandlerBase::HandleInternalOperationRequest(const ser::InternalOperationReq
 
         send(proto_->Serialize(resp));
     } else if (req.operation_code == ICodes::IOpTransportProtocol) {
+        ZoneScopedN("HandleInternalOperationRequest_IOpTransportProtocol");
+
         // Quietly process transport protocol tell
         req.parameters[ICodes::IKeyTransportProtocol].store_if(reinterpret_cast<uint8_t&>(peer_->transport_protocol));
         peer_->log->info("Got informed about transport protocol: {}", magic_enum::enum_name(peer_->transport_protocol));
-    } else {
+    } else {     
         // Answer unknown operation
         const ser::OperationResponseMessage resp{.operation_code = req.operation_code,
                                                  .return_code = ErrorCodes::Core::OperationInvalid,
