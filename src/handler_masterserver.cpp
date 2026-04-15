@@ -598,8 +598,7 @@ void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
                         // Send game creation
                         ser::EventMessage event;
                         event.event_code = EventCodes::GameList;
-                        event.parameters[DictKeyCodes::LoadBalancing::GameList] =
-                            get_game_list(*game->lobby, [game](const Game& o) { return &o == game.get(); });
+                        event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(*game->lobby, *game);
 
                         send(proto_->Serialize(event));
                     },
@@ -608,8 +607,7 @@ void MasterServerHandler::join_lobby(std::shared_ptr<Lobby> lobby) {
                         // Send game property change
                         ser::EventMessage event;
                         event.event_code = EventCodes::GameList;
-                        event.parameters[DictKeyCodes::LoadBalancing::GameList] =
-                            get_game_list(*game->lobby, [game](const Game& o) { return &o == game.get(); });
+                        event.parameters[DictKeyCodes::LoadBalancing::GameList] = get_game_list(*game->lobby, *game);
 
                         send(proto_->Serialize(event));
                     },
@@ -689,6 +687,16 @@ void MasterServerHandler::send_lobby_stats() {
     send(proto_->Serialize(event));
 }
 
+ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, const Game& game) {
+    ZoneScoped;
+
+    auto fres = std::make_shared<ser::Hashtable>();
+    if (game.is_visible)
+        fres->emplace(game.id, std::make_shared<ser::Hashtable>(game.get_lobby_game_props()));
+
+    return fres;
+}
+
 ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function<bool(const Game&)> game_filter) {
     ZoneScoped;
 
@@ -704,6 +712,8 @@ ser::HashtablePtr MasterServerHandler::get_game_list(Lobby& lobby, std::function
     for (auto& [name, weak_game] : lobby.games) {
         auto game = weak_game.lock();
         if (!game)
+            continue;
+        if (!game->is_visible)
             continue;
         if (game_filter && !game_filter(*game))
             continue;

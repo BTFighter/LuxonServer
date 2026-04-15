@@ -339,7 +339,7 @@ ser::Value Game::get_game_prop(const ser::Value& key) {
     return res->second;
 }
 
-ser::Hashtable Game::get_lobby_game_props() {
+ser::Hashtable Game::get_lobby_game_props() const {
     ZoneScoped;
 
     ser::Hashtable fres;
@@ -349,7 +349,7 @@ ser::Hashtable Game::get_lobby_game_props() {
 
     for (const auto& key : lobby_props)
         if (custom_props.contains(key))
-            fres.emplace(key, custom_props[key]);
+            fres.emplace(key, custom_props.at(key));
 
     return fres;
 }

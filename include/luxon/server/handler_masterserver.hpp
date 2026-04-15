@@ -52,6 +52,7 @@ protected:
     ser::Dictionary get_lobby_stats(std::function<bool(const Lobby&)> lobby_filter = nullptr);
     void send_lobby_stats();
 
+    ser::HashtablePtr get_game_list(Lobby& lobby, const Game& game);
     ser::HashtablePtr get_game_list(Lobby& lobby, std::function<bool(const Game&)> game_filter = nullptr);
     void send_game_list();
 };
