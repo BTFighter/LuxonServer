@@ -65,6 +65,7 @@
 #include <luxon/ser_gp_binary_v18.hpp>
 #include <luxon/ser_encryption.hpp>
 #include <luxon/visualizer.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace server {
 namespace {
@@ -474,6 +475,7 @@ bool ServerManager::run_once() {
 #endif
     }
 
+    FrameMark;
     return running_;
 }
 

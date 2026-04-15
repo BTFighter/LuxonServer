@@ -51,6 +51,8 @@ using JoinRandomGame = ExtendedModel<SqlQuery, Parameter<MatchmakingType::Enum, 
 
 using FindFriends = Model<Parameter<std::vector<std::string>, AuthAndLobby::FindFriendsRequestList, false>,
                           Parameter<int32_t, AuthAndLobby::FindFriendsOptions, false, DefaultConst<FindFriendsOptions::Default>>>;
+
+using LobbyStats = Model<Parameter<std::string, DictKeyCodes::AuthAndLobby::LobbyName, true>, Parameter<uint8_t, DictKeyCodes::AuthAndLobby::LobbyType, true>>;
 } // namespace models
 
 void MasterServerHandler::HandleSlowUpdate() {
@@ -145,17 +147,23 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
             return;
         }
 
-        case OpCodes::Lobby::LobbyStats: { // TODO: This looks really unclean. What is going on?
+        case OpCodes::Lobby::LobbyStats: {
+            const auto params = models::LobbyStats::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
+
             // Get filters
-            const auto& lobby_name_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyName];
-            const auto& lobby_type_param = req.parameters[DictKeyCodes::AuthAndLobby::LobbyType];
+            const auto *filter_name = params->get<DictKeyCodes::AuthAndLobby::LobbyName>();
+            const auto& filter_type = params->get<DictKeyCodes::AuthAndLobby::LobbyType>();
 
             // Build response
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::LobbyStats};
             resp.parameters = get_lobby_stats([&](const Lobby& lobby) {
-                if (lobby_name_param.is<std::string>() && lobby.name != lobby_name_param)
+                if (filter_name && lobby.name != *filter_name)
                     return false;
-                if (lobby_type_param.is<std::string>() && lobby.type != lobby_type_param)
+                if (filter_type.has_value() && lobby.type != filter_type.value())
                     return false;
                 return true;
             });

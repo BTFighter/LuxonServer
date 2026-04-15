@@ -15,6 +15,8 @@ option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
 option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of game plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
 option(LUXON_USE_EMBED_RESOURCE "Use EmbedResource instead of incbin.h" OFF)
+option(LUXON_SERVER_TRACY "Build Luxon Server with tracy enabled" OFF)
+option(LUXON_SERVER_TRACY_ON_DEMAND "Only collect tracy data with profiler server connected" ON)
 
 set(WEB_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/web")
 
@@ -78,11 +80,13 @@ add_executable(luxon_server
     include/luxon/server/lobby.hpp    include/luxon/server/string_hash.hpp  src/handler_base.cpp src/json.hpp      src/peer_persistence.cpp
     include/luxon/server/data_model.hpp src/sqlite3.c src/sqlite3.h
     src/lobby_vt.hpp src/lobby_vt.cpp
+
+    tracy/public/tracy/Tracy.hpp
 )
 target_link_libraries(luxon_server
     sanmake commoncpp magic_enum luxon_enet luxon_ser luxon_http_parser luxon_visualizer
 )
-target_include_directories(luxon_server PRIVATE include/luxon/server PUBLIC include)
+target_include_directories(luxon_server PRIVATE include/luxon/server tracy/public PUBLIC include)
 target_compile_definitions(luxon_server PRIVATE SQLITE_CUSTOM_INCLUDE=sqlite3-config.h)
 
 # Windows specific fixes
@@ -128,6 +132,14 @@ endif()
 if (LUXON_SERVER_USE_SPDLOG)
     target_link_libraries(luxon_server spdlog::spdlog)
     target_compile_definitions(luxon_server PUBLIC LUXON_SERVER_USE_SPDLOG)
+endif()
+
+if (LUXON_SERVER_TRACY)
+    target_sources(luxon_server PRIVATE tracy/public/TracyClient.cpp)
+    target_compile_definitions(luxon_server PRIVATE TRACY_ENABLE)
+    if (LUXON_SERVER_TRACY_ON_DEMAND)
+        target_compile_definitions(luxon_server PRIVATE TRACY_ON_DEMAND)
+    endif()
 endif()
 
 # Platform dependent configuration
