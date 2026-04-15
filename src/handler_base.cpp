@@ -50,7 +50,6 @@ HandlerBase::~HandlerBase() {
 void HandlerBase::HandleConnect() { peer_->log->info("Client connected!"); }
 void HandlerBase::HandleDisconnect() { peer_->log->info("Client disconnected!"); }
 
-void HandlerBase::HandleUpdate() {}
 void HandlerBase::HandleSlowUpdate() {}
 
 void HandlerBase::HandleENetConnectionStateChange(enet::EnetConnectionState state) {
@@ -81,26 +80,28 @@ void HandlerBase::HandleENetConnectionStateChange(enet::EnetConnectionState stat
 void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
     ZoneScoped;
 
+    const auto payload = cmd.get_payload();
+
     // Try to parse header
     auto expected_message = ({
         ZoneScopedN("DeserializeENetCommand");
-        proto_->Deserialize(cmd.payload);
+        proto_->Deserialize(payload);
     });
     if (!expected_message) {
         // Try to parse as HTTP request
-        if (auto expected_request = luxon::parse_raw_http(std::string_view{reinterpret_cast<const char *>(cmd.payload.data()), cmd.payload.size()})) {
+        if (auto expected_request = luxon::parse_raw_http(std::string_view{reinterpret_cast<const char *>(payload.data()), payload.size()})) {
             HandleHTTPRequest(std::move(*expected_request), cmd.header);
         } else {
             // We don't know what this is!
-            peer_->log->warn("Invalid packet ({} bytes in length) received: {}", cmd.payload.size(), expected_message.error().message);
-            luxon::visualizer::helpers::print_hex_dump(cmd.payload, 2);
+            peer_->log->warn("Invalid packet ({} bytes in length) received: {}", payload.size(), expected_message.error().message);
+            luxon::visualizer::helpers::print_hex_dump(payload, 2);
         }
 
         return;
     }
 
     ser::Message& message = *expected_message;
-    cmd.payload.clear();
+    cmd.reset_payload();
 
     if (auto *req = std::get_if<ser::InitMessage>(&message))
         return HandleInitRequest(std::move(*req), cmd.header);

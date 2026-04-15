@@ -441,17 +441,6 @@ bool ServerManager::run_once() {
         }
 
         // Trigger updates
-        for (auto& connection : connections_) {
-            ZoneScopedN("service_clients");
-            try {
-                connection->HandleUpdate();
-            } catch (const std::exception& e) {
-                auto& peer = *connection->get_peer();
-                log_->warn("Disconnecting due to uncaught exception in update: {}", e.what());
-                peer.disconnect();
-            }
-        }
-
         if (slow_update) {
             for (auto& connection : connections_) {
                 ZoneScopedN("service_slow_updates");

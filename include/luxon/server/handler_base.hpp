@@ -23,7 +23,6 @@ public:
 
     virtual void HandleConnect();
     virtual void HandleDisconnect();
-    virtual void HandleUpdate();
     virtual void HandleSlowUpdate();
     virtual void HandleENetConnectionStateChange(enet::EnetConnectionState state);
     virtual void HandleENetCommand(enet::EnetCommand&& cmd);

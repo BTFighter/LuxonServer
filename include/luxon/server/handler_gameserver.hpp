@@ -16,7 +16,14 @@ public:
     void HandleDisconnect() override;
     void HandleOperationRequest(ser::OperationRequestMessage&& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) override;
 
-    auto& get_game() { return peer_->persistent->current_game; }
+    auto& get_game() {
+        if (!peer_ || !peer_->persistent) {
+            static std::shared_ptr<Game> null;
+            null.reset();
+            return null;
+        }
+        return peer_->persistent->current_game;
+    }
 
 protected:
     GamePeer *game_peer_{};
