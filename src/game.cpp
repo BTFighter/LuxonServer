@@ -43,10 +43,19 @@ GamePeer Game::create_peer(std::shared_ptr<Peer> peer) {
         return {};
 
     // Find free actor number
+    int start_id = last_actor_id;
+
     do {
+        // Wrap around to 1
         if (last_actor_id >= 0xfe)
+            last_actor_id = 0;
+        ++last_actor_id;
+
+        // Prevent infinite loop
+        if (last_actor_id == start_id)
             return {};
-    } while (find_peer(++last_actor_id));
+    } while (find_peer(last_actor_id));
+
     fres.actor_id = last_actor_id;
 
     // Add user id
