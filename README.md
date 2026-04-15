@@ -5,11 +5,15 @@ The goal of this project is to be a drop-in replacement for the official server 
 
 ## Legal Disclaimer
 
-> Luxon Server is an independent, open-source project developed for educational, interoperability and game preservation purposes. It is strictly a clean-room implementation.
+> Luxon Server is an independent, open‑source project developed by its contributors. It is **not** affiliated with, endorsed by, or sponsored by Exit Games GmbH or any of its subsidiaries.
 > 
-> This project is **not** affiliated with, endorsed by, sponsored by, or authorized by Exit Games Inc., Exit Games GmbH, or any of their subsidiaries. "Photon", "Photon Engine", and "Exit Games" are trademarks or registered trademarks of Exit Games. All trademarks and registered trademarks are the property of their respective owners. Use of these names does not imply any affiliation with or endorsement by them.
-
-All reverse engineering for all code contained inside the the Luxon Server project has happened by looking at traffic dumps between an official server and an official client via a transparent proxy. I am going to release that proxy earlier or later, I just haven't gotten to making the code readable and clean yet.
+> **Photon** and **Photon Realtime** are registered trademarks of Exit Games GmbH. All other trademarks, service marks, and trade names referenced in this project are the property of their respective owners.
+> 
+> Luxon Server is designed to be protocol‑compatible with the Photon Realtime client SDKs. This compatibility is achieved solely through independent analysis of publicly available protocol documentation and network traffic observation. No proprietary code, confidential information, or reverse‑engineered assets from Exit Games are included in this project.
+> 
+> Any use of the term "Photon" within this repository is for descriptive purposes only, to indicate compatibility, and does not imply any endorsement or official relationship.
+> 
+> If you are a representative of Exit Games and have concerns regarding this project, please contact me at tuxifan@posteo.de so I may address them promptly.
 
 ## Compatibility
 
