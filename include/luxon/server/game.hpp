@@ -16,6 +16,7 @@
 #include <vector>
 #include <list>
 #include <variant>
+#include <bitset>
 #include <luxon/ser_types.hpp>
 #include <luxon/enet_peer.hpp>
 
@@ -38,7 +39,7 @@ struct GamePeer {
     std::weak_ptr<Peer> peer;
     int32_t actor_id{};
     ser::Hashtable actor_props;
-    std::unordered_set<uint8_t> interest_groups;
+    std::bitset<256> interest_groups{1};
 
     bool is_valid() const { return actor_id > 0; }
     bool has_interest_group(uint8_t group) const;

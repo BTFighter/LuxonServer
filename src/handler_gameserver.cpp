@@ -568,9 +568,9 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
 
             // Remove first, then add (TODO: Verify order)
             for (const uint8_t group : params->get<DictKeyCodes::RoutingAndEvents::Remove>())
-                game_peer_->interest_groups.erase(group);
+                game_peer_->interest_groups.reset(group);
             for (const uint8_t group : params->get<DictKeyCodes::RoutingAndEvents::Add>())
-                game_peer_->interest_groups.insert(group);
+                game_peer_->interest_groups.set(group);
 
             return;
         }

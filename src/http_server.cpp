@@ -614,11 +614,9 @@ json HttpServer::route_request(std::string_view method, std::string path) {
                     if (!gp)
                         throw std::out_of_range("Actor ID not found");
 
-                    json res = {
-                        {"actor_id", gp->actor_id},
-                        {"props", json_conv::photon_hash_to_json(gp->actor_props)},
-                        {"interest_groups", gp->interest_groups} // set<uint8> auto conv
-                    };
+                    json res = {{"actor_id", gp->actor_id},
+                                {"props", json_conv::photon_hash_to_json(gp->actor_props)},
+                                {"interest_groups", gp->interest_groups.to_string()}};
 
                     if (auto p = gp->peer.lock())
                         if (p->is_authenticated())

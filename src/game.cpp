@@ -14,7 +14,7 @@ bool GamePeer::has_interest_group(uint8_t group) const {
     if (group == 0)
         return true;
 
-    return interest_groups.contains(group);
+    return interest_groups.test(group);
 }
 
 bool GamePeer::disconnect() {
@@ -146,13 +146,15 @@ bool Game::flood_peer(GamePeer *game_peer) {
     if (auto peer = game_peer->peer.lock()) {
         size_t count = 0;
 
+        ser::EventMessage event_data;
         for (const auto& event : event_cache) {
             // Actor events don't go back to the sender
             if (event.sender_actor_id != 0 && event.sender_actor_id == game_peer->actor_id)
                 continue;
 
             // Serialize event
-            ser::EventMessage event_data{.event_code = event.code, .parameters = event.top_params};
+            event_data.event_code = event.code;
+            event_data.parameters = event.top_params;
             event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
             if (!event.data.is_null())
                 event_data.parameters[DictKeyCodes::RoutingAndEvents::Data] = event.data;
