@@ -137,7 +137,6 @@ void MasterServerHandler::HandleOperationRequest(const ser::OperationRequestMess
 
             // Send response (code is always "Ok")
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Lobby::LeaveLobby, .return_code = ErrorCodes::Core::Ok};
-            send(proto_->Serialize(resp));
             if (lobby)
                 peer_->log->info("Left lobby: {}", lobby->name.empty() ? "(unnamed)" : lobby->name);
             else
