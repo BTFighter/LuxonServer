@@ -26,6 +26,35 @@ bool GamePeer::disconnect() {
     return false;
 }
 
+std::expected<ser::ByteArray, ser::Error> Event::get_cached_data(ser::IProtocol& protocol) const {
+    ZoneScoped;
+
+    const auto protocol_index = static_cast<size_t>(protocol.GetProtcolImplID());
+    auto& cache = cached_data[protocol_index];
+
+    // Return the already serialized network packet for this protocol
+    if (protocol_index < cached_data.size() && !cache.empty())
+        return cache;
+
+    // Build the base event message
+    ser::EventMessage event_data{.event_code = code, .parameters = top_params};
+    event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(sender_actor_id);
+
+    if (!data.is_null())
+        event_data.parameters[DictKeyCodes::RoutingAndEvents::Data] = data; // Take data
+
+    // Serialize the complete packet
+    auto expected_payload = protocol.Serialize(event_data, false);
+    if (!expected_payload)
+        return std::unexpected(expected_payload.error());
+
+    // Cache it if it's a known protocol
+    if (protocol_index < cached_data.size())
+        cache = *expected_payload;
+
+    return *expected_payload;
+}
+
 Game::~Game(){// Call into plugins
               GAME_PLUGINS_INVOKE({
                   OnCloseGameCallInfo info{.failed_on_create = last_actor_id == 0};
@@ -155,21 +184,13 @@ bool Game::flood_peer(GamePeer *game_peer) {
     if (auto peer = game_peer->peer.lock()) {
         size_t count = 0;
 
-        ser::EventMessage event_data;
         for (const auto& event : event_cache) {
             // Actor events don't go back to the sender
             if (event.sender_actor_id != 0 && event.sender_actor_id == game_peer->actor_id)
                 continue;
 
-            // Serialize event
-            event_data.event_code = event.code;
-            event_data.parameters = event.top_params;
-            event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
-            if (!event.data.is_null())
-                event_data.parameters[DictKeyCodes::RoutingAndEvents::Data] = event.data;
-
             // Cached events are re-sent as if they were fresh to the joining player
-            const auto expected_event_payload = peer->protocol->Serialize(event_data, false);
+            const auto expected_event_payload = event.get_cached_data(*peer->protocol);
             if (!expected_event_payload)
                 peer->log->warn("Failed to serialize flooded event: {}", expected_event_payload.error().message);
             else
@@ -205,33 +226,30 @@ GamePeer *Game::find_peer(const std::shared_ptr<Peer>& peer) {
 void Game::broadcast_event(Event& event) {
     ZoneScoped;
 
-    // Build event message
-    ser::EventMessage event_data{.event_code = event.code, .parameters = std::move(event.top_params)};
-    event_data.parameters[DictKeyCodes::GameAndActor::ActorNo] = static_cast<int32_t>(event.sender_actor_id);
-    if (!event.data.is_null())
-        event_data.parameters[DictKeyCodes::RoutingAndEvents::Data] = std::move(event.data);
-
     enet::EnetSendOptions send_options{.channel = event.channel, .mode = event.delivery_mode};
 
     // Set default recipients
     if (event.receivers.index() == 0)
         event.receivers = ReceiverGroup::Others;
 
+    // Dispatcher
+    const auto dispatch = [&](GamePeer& game_peer) {
+        if (auto peer = game_peer.peer.lock()) {
+            const auto expected_event_payload = event.get_cached_data(*peer->protocol);
+            if (!expected_event_payload)
+                peer->log->warn("Failed to serialize event: {}", expected_event_payload.error().message);
+            else
+                peer->send(*expected_event_payload, send_options);
+        }
+    };
+
     // Send to all recipients
     if (auto *receiver_group = std::get_if<uint8_t>(&event.receivers)) {
         if (*receiver_group == ReceiverGroup::MasterClient) {
             // Send to master client
-            if (auto *game_peer = find_peer(master_actor)) {
-                if (game_peer->has_interest_group(event.interest_group)) {
-                    if (auto peer = game_peer->peer.lock()) {
-                        const auto expected_event_payload = peer->protocol->Serialize(event_data, false);
-                        if (!expected_event_payload)
-                            peer->log->warn("Failed to serialize event: {}", expected_event_payload.error().message);
-                        else
-                            peer->send(*expected_event_payload, send_options);
-                    }
-                }
-            }
+            if (auto *game_peer = find_peer(master_actor))
+                if (game_peer->has_interest_group(event.interest_group))
+                    dispatch(*game_peer);
         } else {
             // Send to others (or all)
             for (auto& game_peer : peers) {
@@ -239,13 +257,7 @@ void Game::broadcast_event(Event& event) {
                     continue;
                 if (!game_peer.has_interest_group(event.interest_group))
                     continue;
-                if (auto peer = game_peer.peer.lock()) {
-                    const auto expected_event_payload = peer->protocol->Serialize(event_data, false);
-                    if (!expected_event_payload)
-                        peer->log->warn("Failed to serialize event: {}", expected_event_payload.error().message);
-                    else
-                        peer->send(*expected_event_payload, send_options);
-                }
+                dispatch(game_peer);
             }
         }
     } else if (auto *actors = std::get_if<std::unordered_set<int32_t>>(&event.receivers)) {
@@ -256,13 +268,7 @@ void Game::broadcast_event(Event& event) {
                 continue;
             if (!game_peer->has_interest_group(event.interest_group))
                 continue;
-            if (auto peer = game_peer->peer.lock()) {
-                const auto expected_event_payload = peer->protocol->Serialize(event_data, false);
-                if (!expected_event_payload)
-                    peer->log->warn("Failed to serialize event: {}", expected_event_payload.error().message);
-                else
-                    peer->send(*expected_event_payload, send_options);
-            }
+            dispatch(*game_peer);
         }
     }
 }

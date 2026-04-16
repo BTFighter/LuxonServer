@@ -17,7 +17,9 @@
 #include <list>
 #include <variant>
 #include <bitset>
+#include <array>
 #include <luxon/ser_types.hpp>
+#include <luxon/ser_protocol_id.hpp>
 #include <luxon/enet_peer.hpp>
 
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
@@ -29,6 +31,10 @@
 #else
 #define GAME_PLUGINS_INVOKE(...)
 #endif
+
+namespace luxon::ser {
+class IProtocol;
+}
 
 namespace server {
 class App;
@@ -55,6 +61,9 @@ struct Event {
     uint8_t interest_group{};
     ser::Value data;
     ser::Dictionary top_params;
+
+    mutable std::array<ser::ByteArray, static_cast<size_t>(ser::ProtocolImplID::__length)> cached_data;
+    std::expected<ser::ByteArray, ser::Error> get_cached_data(ser::IProtocol& protocol) const;
 
     ser::Hashtable& make_params_hashtable() { return *(data = std::make_shared<ser::Hashtable>()).get<ser::HashtablePtr>(); }
     ser::Hashtable *get_params_hashtable() {
