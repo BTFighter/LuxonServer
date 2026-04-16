@@ -281,6 +281,10 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
 
             const bool is_master = game->peers.empty();
 
+            // Mark game as created
+            if (is_master)
+                game->is_created = true;
+
             // Validate game ID
             if (params->get<DictKeyCodes::GameAndActor::GameId>() != game->id) {
                 const ser::OperationResponseMessage resp{.operation_code = req.operation_code,

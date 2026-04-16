@@ -276,6 +276,10 @@ void Game::broadcast_event(Event& event) {
 int16_t Game::validate_join(const std::string& user_id, size_t new_expected_users_count) const {
     ZoneScoped;
 
+    // Return error if game hasn't been created yet
+    if (!is_created)
+        return ErrorCodes::Matchmaking::GameIdNotExists;
+
     // Return error if game is closed
     if (!is_open)
         return ErrorCodes::Matchmaking::GameClosed;

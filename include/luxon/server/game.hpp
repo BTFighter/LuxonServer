@@ -84,6 +84,7 @@ struct Game : std::enable_shared_from_this<Game> {
 #endif
 
     uint8_t flags = 3; // CheckUserOnJoin | DeleteCacheOnLeave
+    bool is_created = false;
     bool is_open = true;
     bool is_visible = true;
     int32_t player_ttl = 0;

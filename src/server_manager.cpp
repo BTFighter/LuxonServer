@@ -538,10 +538,10 @@ void ServerManager::setup() {
 #ifndef NDEBUG
                 peer->log->trace("Received message using mode {} on channel {}:", static_cast<int>(enet::FlagsToEnetDeliveryMode(cmd.header.flags)),
                                  cmd.header.channel_id);
-                if (!visualizer::print_ser_message(cmd.payload, 2, *peer->protocol)) {
-                    if (!visualizer::print_http_message(cmd.payload, 2)) {
+                if (!visualizer::print_ser_message(cmd.get_payload(), 2, *peer->protocol)) {
+                    if (!visualizer::print_http_message(cmd.get_payload(), 2)) {
                         peer->log->error("Message not understood!");
-                        visualizer::helpers::print_hex_dump(cmd.payload, 2);
+                        visualizer::helpers::print_hex_dump(cmd.get_payload(), 2);
                     }
                 }
 #endif
