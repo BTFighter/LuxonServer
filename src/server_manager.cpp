@@ -428,11 +428,13 @@ bool ServerManager::run_once() {
 #endif
         for (auto& [port, server] : servers_) {
             try {
-                ZoneScopedN("service_servers");
 #ifndef LUXON_SERVER_POLL
                 if (std::ranges::contains(readable_socks, server.native_handle()))
 #endif
+                {
+                    ZoneScopedN("service_server");
                     server.service_self();
+                }
                 if (!server.service_peers())
                     log_->warn("Queueing UDP datagrams!");
             } catch (const std::exception& e) {
@@ -443,8 +445,8 @@ bool ServerManager::run_once() {
         // Trigger updates
         if (slow_update) {
             for (auto& connection : connections_) {
-                ZoneScopedN("service_slow_updates");
                 try {
+                    ZoneScopedN("service_server_slow_updates");
                     connection->HandleSlowUpdate();
                 } catch (const std::exception& e) {
                     auto& peer = *connection->get_peer();
