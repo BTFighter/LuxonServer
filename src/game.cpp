@@ -55,6 +55,10 @@ std::expected<ser::ByteArray, ser::Error> Event::get_cached_data(ser::IProtocol&
     return *expected_payload;
 }
 
+Game::Game(std::shared_ptr<Lobby> lobby, std::string id) : lobby(std::move(lobby)), id(std::move(id)) {
+    max_peers = lobby->app->server_manager.get_max_game_peers();
+}
+
 Game::~Game(){// Call into plugins
               GAME_PLUGINS_INVOKE({
                   OnCloseGameCallInfo info{.failed_on_create = last_actor_id == 0};
@@ -295,9 +299,17 @@ std::pair<int16_t, std::string_view> Game::validate_join(const std::string& user
         // Calculate total needed slots
         size_t needed_slots = (joining_user_is_reserved ? 0 : 1) + new_expected_users_count;
 
+        // Calculate amount peers that have to be allowed
+        const auto final_peer_count = current_count + reserved_count + needed_slots;
+
         // Return error if game is full
-        if (current_count + reserved_count + needed_slots > max_peers)
+        if (final_peer_count > max_peers)
             return {ErrorCodes::Matchmaking::GameFull, "Game is full"};
+
+        // Return error if limit of peers per game is reached
+        if (const auto max_game_peers = lobby->app->server_manager.get_max_game_peers())
+            if (final_peer_count > max_game_peers)
+                return {ErrorCodes::Matchmaking::GameFull, "Game is full"};
 
         // Return error if actor list is full
         if (peers.size() + needed_slots > 0xfe)

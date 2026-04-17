@@ -43,6 +43,7 @@ External:
 # Misc settings
 
 MaxConnections: 20
+MaxGamePeers: 0 # No explicit limit
 
 
 # Web interface and API

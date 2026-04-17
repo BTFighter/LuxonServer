@@ -212,7 +212,15 @@ ServerManager::ServerManager(const std::string& config_file) {
         // Handle global max connections
         else if (key == "MaxConnections" || key == "CCU") {
             if (!section.IsNone())
-                max_connections_ = section.As<size_t>();
+                max_connections_ = section.As<unsigned>();
+        }
+        // Handle max peers per game
+        else if (key == "MaxGamePeers") {
+            if (!section.IsNone()) {
+                max_game_peers_ = std::min<unsigned>(section.As<unsigned>(), 255);
+                if (max_game_peers_ == 255)
+                    max_game_peers_ = 0;
+            }
         }
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Handle "Http Server" Section

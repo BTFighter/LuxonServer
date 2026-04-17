@@ -95,7 +95,8 @@ private:
 
     bool running_;
 
-    size_t max_connections_ = 0;
+    unsigned max_connections_ = 0;
+    uint8_t max_game_peers_ = 0;
 
     void setup();
 
@@ -199,8 +200,12 @@ public:
         return fres;
     }
     ///
-    /// \brief Gets the maximum allowed connections read from the configuration
+    /// \brief Gets the maximum allowed connections
     ///
-    size_t get_max_connections() const { return max_connections_; }
+    unsigned get_max_connections() const { return max_connections_; }
+    ///
+    /// \brief Gets the maximum allowed peers per game
+    ///
+    uint8_t get_max_game_peers() const { return max_game_peers_; }
 };
 } // namespace server
