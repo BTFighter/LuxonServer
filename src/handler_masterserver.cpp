@@ -343,12 +343,14 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
             }
 
             // Validate join
-            const int16_t join_validation_code = game->validate_join(peer_->persistent->user_id);
-            if (join_validation_code != ErrorCodes::Core::Ok) {
-                const ser::OperationResponseMessage resp{
-                    .operation_code = OpCodes::Matchmaking::JoinGame, .return_code = join_validation_code, .debug_message = "Game closed or full"};
-                send(proto_->Serialize(resp));
-                return;
+            if (!is_new) {
+                const int16_t join_validation_code = game->validate_join(peer_->persistent->user_id);
+                if (join_validation_code != ErrorCodes::Core::Ok) {
+                    const ser::OperationResponseMessage resp{
+                        .operation_code = OpCodes::Matchmaking::JoinGame, .return_code = join_validation_code, .debug_message = "Game closed or full"};
+                    send(proto_->Serialize(resp));
+                    return;
+                }
             }
 
             // Make token valid for this game
