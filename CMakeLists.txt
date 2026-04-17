@@ -82,6 +82,7 @@ add_executable(luxon_server
     src/lobby_vt.hpp src/lobby_vt.cpp
 
     tracy/public/tracy/Tracy.hpp
+    src/tracy_mem.cpp
 )
 target_link_libraries(luxon_server
     sanmake commoncpp magic_enum luxon_enet luxon_ser luxon_http_parser luxon_visualizer

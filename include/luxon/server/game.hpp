@@ -112,7 +112,7 @@ struct Game : std::enable_shared_from_this<Game> {
     GamePeer create_peer(std::shared_ptr<Peer> peer);
     ///
     /// \brief Adds given GamePeer to game
-    /// \param game_peer GamePeer to add to game, must've been previously created by the same Game using create_peer()
+    /// \param game_peer GamePeer to add to game, must've been previously been created by the same Game using create_peer()
     /// \return Pointer to added GamePeer if successful, otherwise nullptr
     /// \note Fails if actor_id is already taken or CheckUserOnJoin flag is set and user id is already taken
     ///
@@ -142,7 +142,7 @@ struct Game : std::enable_shared_from_this<Game> {
     ///
     GamePeer *find_peer(const std::shared_ptr<Peer>& peer);
     ///
-    /// \brief Broadcasts an event to the lobby
+    /// \brief Broadcasts an event to the game
     /// \param event Event to broadcast
     ///
     void broadcast_event(Event& event);
