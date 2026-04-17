@@ -83,10 +83,11 @@ void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
     const auto payload = cmd.get_payload();
 
     // Try to parse header
-    auto expected_message = ({
+    std::expected<ser::Message, ser::Error> expected_message;
+    {
         ZoneScopedN("DeserializeENetCommand");
-        proto_->Deserialize(payload);
-    });
+        expected_message = proto_->Deserialize(payload);
+    }
     if (!expected_message) {
         // Try to parse as HTTP request
         if (auto expected_request = luxon::parse_raw_http(std::string_view{reinterpret_cast<const char *>(payload.data()), payload.size()})) {
