@@ -364,6 +364,8 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
             ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame, .return_code = ErrorCodes::Core::Ok};
             resp.parameters[DictKeyCodes::LoadBalancing::Address] = server_manager_.get_endpoint_of(ServerType::GameServer, peer_->transport_protocol);
             resp.parameters[DictKeyCodes::LoadBalancing::Token] = peer_->persistent->token;
+            if (game->id != game_id)
+                resp.parameters[DictKeyCodes::GameAndActor::GameId] = game->id;
 
             send(proto_->Serialize(resp));
             peer_->log->info("Joining {} game: {}", is_new ? "newly created" : "existing", game->id);
