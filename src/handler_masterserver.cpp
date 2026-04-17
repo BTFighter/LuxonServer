@@ -315,7 +315,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
                 if (!params->get<DictKeyCodes::AuthAndLobby::CreateIfNotExists>()) {
                     const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
                                                              .return_code = ErrorCodes::Matchmaking::GameIdNotExists,
-                                                             .debug_message = "Game ID does not exist"};
+                                                             .debug_message = "Game does not exist"};
                     send(proto_->Serialize(resp));
                     return;
                 }
@@ -344,10 +344,11 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
 
             // Validate join
             if (!is_new) {
-                const int16_t join_validation_code = game->validate_join(peer_->persistent->user_id);
+                const auto [join_validation_code, join_validation_message] = game->validate_join(peer_->persistent->user_id);
                 if (join_validation_code != ErrorCodes::Core::Ok) {
-                    const ser::OperationResponseMessage resp{
-                        .operation_code = OpCodes::Matchmaking::JoinGame, .return_code = join_validation_code, .debug_message = "Game closed or full"};
+                    const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
+                                                             .return_code = join_validation_code,
+                                                             .debug_message = std::string(join_validation_message)};
                     send(proto_->Serialize(resp));
                     return;
                 }
@@ -396,7 +397,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
                         if (auto res = lobby.value()->games.find(id); res != lobby.value()->games.end()) {
                             if (auto game = res->second.lock()) {
                                 // Make sure game is joinable
-                                if (game->validate_join(peer_->persistent->user_id) == ErrorCodes::Core::Ok) {
+                                if (game->validate_join(peer_->persistent->user_id).first == ErrorCodes::Core::Ok) {
                                     selected_game = game;
                                     break;
                                 }
@@ -424,7 +425,7 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
                         continue;
 
                     // Make sure game is joinable  TODO: Pass expected user count too
-                    if (game->validate_join(peer_->persistent->user_id) != ErrorCodes::Core::Ok)
+                    if (game->validate_join(peer_->persistent->user_id).first != ErrorCodes::Core::Ok)
                         continue;
 
                     // Property filter

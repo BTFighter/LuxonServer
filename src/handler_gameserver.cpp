@@ -311,10 +311,11 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
                 }
             } else {
                 // Verify join if joining existing room
-                const int16_t join_validation_code = game->validate_join(peer_->persistent->user_id);
+                const auto [join_validation_code, join_validation_message] = game->validate_join(peer_->persistent->user_id);
                 if (join_validation_code != ErrorCodes::Core::Ok) {
-                    const ser::OperationResponseMessage resp{
-                        .operation_code = OpCodes::Matchmaking::JoinGame, .return_code = join_validation_code, .debug_message = "Game closed or full"};
+                    const ser::OperationResponseMessage resp{.operation_code = OpCodes::Matchmaking::JoinGame,
+                                                             .return_code = join_validation_code,
+                                                             .debug_message = std::string(join_validation_message)};
                     send(proto_->Serialize(resp));
                     return;
                 }

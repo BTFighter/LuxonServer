@@ -18,6 +18,7 @@
 #include <variant>
 #include <bitset>
 #include <array>
+#include <utility>
 #include <luxon/ser_types.hpp>
 #include <luxon/ser_protocol_id.hpp>
 #include <luxon/enet_peer.hpp>
@@ -149,9 +150,9 @@ struct Game : std::enable_shared_from_this<Game> {
     /// \brief Checks if user + given amount of expected users can join
     /// \param user_id User ID of primary user trying to join
     /// \param new_expected_users_count Amount of users to calculate in as well
-    /// \return ErrorCode value
+    /// \return ErrorCode value and error string
     ///
-    int16_t validate_join(const std::string& user_id, size_t new_expected_users_count = 0) const;
+    std::pair<int16_t, std::string_view> validate_join(const std::string& user_id, size_t new_expected_users_count = 0) const;
 
     ///
     /// \brief Updates the game in the lobby's game list

@@ -273,16 +273,16 @@ void Game::broadcast_event(Event& event) {
     }
 }
 
-int16_t Game::validate_join(const std::string& user_id, size_t new_expected_users_count) const {
+std::pair<int16_t, std::string_view> Game::validate_join(const std::string& user_id, size_t new_expected_users_count) const {
     ZoneScoped;
 
     // Return error if game hasn't been created yet
     if (!is_created)
-        return ErrorCodes::Matchmaking::GameIdNotExists;
+        return {ErrorCodes::Matchmaking::GameIdNotExists, "Game does not exist"};
 
     // Return error if game is closed
     if (!is_open)
-        return ErrorCodes::Matchmaking::GameClosed;
+        return {ErrorCodes::Matchmaking::GameClosed, "Game is closed"};
 
     // Check capacity (peers + expected users)
     if (max_peers > 0) {
@@ -297,11 +297,11 @@ int16_t Game::validate_join(const std::string& user_id, size_t new_expected_user
 
         // Return error if game is full
         if (current_count + reserved_count + needed_slots > max_peers)
-            return ErrorCodes::Matchmaking::GameFull;
+            return {ErrorCodes::Matchmaking::GameFull, "Game is full"};
 
         // Return error if actor list is full
         if (peers.size() + needed_slots > 0xfe)
-            return ErrorCodes::Matchmaking::ActorListFull;
+            return {ErrorCodes::Matchmaking::ActorListFull, "Game is full"};
     }
 
     // Check user id uniqueness if enabled
@@ -309,9 +309,9 @@ int16_t Game::validate_join(const std::string& user_id, size_t new_expected_user
         for (const auto& that_game_peer : peers)
             if (auto that_peer = that_game_peer.peer.lock())
                 if (that_peer->persistent && that_peer->persistent->user_id == user_id)
-                    return ErrorCodes::Matchmaking::JoinFail::JoinFailedPeerAlreadyJoined;
+                    return {ErrorCodes::Matchmaking::JoinFail::JoinFailedPeerAlreadyJoined, "Game already joined"};
 
-    return ErrorCodes::Core::Ok;
+    return {ErrorCodes::Core::Ok, {}};
 }
 
 void Game::trigger_lobby_update() {
