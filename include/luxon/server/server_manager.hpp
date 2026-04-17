@@ -95,6 +95,8 @@ private:
 
     bool running_;
 
+    size_t max_connections_ = 0;
+
     void setup();
 
     void run_scheduled_tasks();
@@ -196,5 +198,9 @@ public:
             fres += !!dynamic_cast<HandlerT *>(connection.get());
         return fres;
     }
+    ///
+    /// \brief Gets the maximum allowed connections read from the configuration
+    ///
+    size_t get_max_connections() const { return max_connections_; }
 };
 } // namespace server

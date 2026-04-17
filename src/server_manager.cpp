@@ -209,6 +209,11 @@ ServerManager::ServerManager(const std::string& config_file) {
                 }
             }
         }
+        // Handle global max connections
+        else if (key == "MaxConnections" || key == "CCU") {
+            if (!section.IsNone())
+                max_connections_ = section.As<size_t>();
+        }
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Handle "Http Server" Section
         else if (key == "HTTP") {

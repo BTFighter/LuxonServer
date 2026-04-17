@@ -7,7 +7,9 @@
 #include "peer_persistence.hpp"
 #include "apps.hpp"
 #include "data_model.hpp"
+#include "server_manager.hpp"
 
+#include <format>
 #include <algorithm>
 #include <random>
 #include <luxon/ser_interface.hpp>
@@ -38,6 +40,13 @@ std::string generate_user_id() {
 ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& peer, const ser::OperationRequestMessage& req,
                                            const enet::EnetCommandHeader& cmd_header, bool refresh_token) {
     ZoneScoped;
+
+    // Stop if maximum connection count is reached
+    if (server_manager.get_max_connections() != 0 && server_manager.get_connection_count() > server_manager.get_max_connections()) {
+        return {.operation_code = req.operation_code,
+                .return_code = ErrorCodes::Throttling::MaxCcuReached,
+                .debug_message = std::format("Max CCU of {} reached", server_manager.get_max_connections())};
+    }
 
     // Decide on algorithm based on the presence of the Token parameter
     const bool token_auth = req.parameters.contains(DictKeyCodes::LoadBalancing::Token);

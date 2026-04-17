@@ -40,6 +40,11 @@ External:
     protocol: TCP
 
 
+# Misc settings
+
+MaxConnections: 20
+
+
 # Web interface and API
 
 HTTP:
