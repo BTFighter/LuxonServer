@@ -55,10 +55,6 @@ std::expected<ser::ByteArray, ser::Error> Event::get_cached_data(ser::IProtocol&
     return *expected_payload;
 }
 
-Game::Game(std::shared_ptr<Lobby> lobby, std::string id) : lobby(std::move(lobby)), id(std::move(id)) {
-    max_peers = lobby->app->server_manager.get_max_game_peers();
-}
-
 Game::~Game(){// Call into plugins
               GAME_PLUGINS_INVOKE({
                   OnCloseGameCallInfo info{.failed_on_create = last_actor_id == 0};

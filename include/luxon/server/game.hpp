@@ -98,7 +98,7 @@ struct Game : std::enable_shared_from_this<Game> {
     std::vector<std::string> lobby_props;
     std::list<Event> event_cache;
 
-    Game(std::shared_ptr<Lobby> lobby, std::string id);
+    Game(std::shared_ptr<Lobby> lobby, std::string id) : lobby(std::move(lobby)), id(std::move(id)) {}
 
     std::list<GamePeer> peers;
 
