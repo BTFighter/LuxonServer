@@ -29,10 +29,6 @@
 /* Remove all deprecated functions to save binary size. */
 #define SQLITE_OMIT_DEPRECATED 1
 
-/* Disable automatic initialization (you must call sqlite3_initialize() manually if needed, 
-   though sqlite3_open handles it by default). */
-#define SQLITE_OMIT_AUTOINIT 1
-
 /* Omit memory allocation statistics tracking for a slight speed boost. */
 #define SQLITE_DEFAULT_MEMSTATUS 0
 
