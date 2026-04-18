@@ -29,6 +29,9 @@ Super Animal Royale:
 Touhou Crisis
 + Works flawlessly
 
+Touhou Gensou Mahjong
++ Works flawlessly
+
 Untitled Ghost Game
 + Works flawlessly
 
