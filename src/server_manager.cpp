@@ -531,7 +531,23 @@ void ServerManager::setup() {
 #endif
 
             // Install handlers
-            enetPeer->on_state_changed = [this, handler = handler.get()](enet::EnetConnectionState state) {
+            enetPeer->on_log_message = [this, handler = handler_ptr](enet::LogLevel enet_level, std::string_view message) {
+                // Convert log level
+                log_level level;
+                switch (enet_level) {
+                case luxon::enet::LogLevel::Warning:
+                    level = log_level::warn;
+                    break;
+                case luxon::enet::LogLevel::Error:
+                    level = log_level::err;
+                    break;
+                }
+
+                // Emit log message
+                handler->get_peer()->log->log(level, "[ENet] {}", message);
+            };
+
+            enetPeer->on_state_changed = [this, handler = handler_ptr](enet::EnetConnectionState state) {
                 try {
                     handler->HandleENetConnectionStateChange(state);
                 } catch (const std::exception& e) {
