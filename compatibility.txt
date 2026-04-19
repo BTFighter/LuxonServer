@@ -10,7 +10,7 @@ Ducks Can Drive
 + Works flawlessly
 
 KEABE: Kill 'Em All - Bunny Edition
-+ Loads in game
++ Works flawlessly
 - Uses unimplemented opcode 0
 
 Paint Warfare
@@ -20,7 +20,7 @@ Phasmophobia
 + Works flawlessly
 
 R.E.P.O.
-+ Loads in game
++ Works flawlessly
 
 Super Animal Royale:
 + Loads in game
