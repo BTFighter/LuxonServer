@@ -1,0 +1,77 @@
+stages:
+  - build
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  CMAKE_GENERATOR: Ninja
+
+.build_template:
+  stage: build
+  artifacts:
+    paths:
+      - build/luxon_server*
+    expire_in: 1 week
+
+# RelWithDebInfo static build amd64 via alpine
+build:alpine:amd64:
+  extends: .build_template
+  image: alpine:3
+  before_script:
+    - apk update && apk add build-base cmake ninja git linux-headers
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXE_LINKER_FLAGS="-static"
+    - cmake --build build
+
+# RelWithDebInfo static build aarch64 via alpine
+build:alpine:aarch64:
+  extends: .build_template
+  image: arm64v8/alpine:3
+  tags:
+    - saas-linux-arm64
+  before_script:
+    - apk update && apk add build-base cmake ninja git linux-headers
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXE_LINKER_FLAGS="-static"
+    - cmake --build build
+
+# RelWithDebInfo build amd64 via Debian Trixie
+build:debian:amd64:
+  extends: .build_template
+  image: debian:trixie
+  before_script:
+    - apt-get update && apt-get install -y build-essential cmake ninja-build git libmbedtls-dev libspdlog-dev
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    - cmake --build build
+
+# RelWithDebInfo build aarch64 via Debian Trixie
+build:debian:aarch64:
+  extends: .build_template
+  image: arm64v8/debian:trixie
+  tags:
+    - saas-linux-arm64
+  before_script:
+    - apt-get update && apt-get install -y build-essential cmake ninja-build git libmbedtls-dev libspdlog-dev
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    - cmake --build build
+
+# RelWithDebInfo build amd64 via llvm-mingw
+build:mingw:amd64:
+  extends: .build_template
+  image: mstorsjo/llvm-mingw:latest
+  before_script:
+    - apt-get update && apt-get install -y cmake ninja-build git
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-clang -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-clang++ -DCMAKE_EXE_LINKER_FLAGS="-static"
+    - cmake --build build
+
+# RelWithDebInfo build Nintendo 3DS via devkitpro
+build:nintendo_3ds:
+  extends: .build_template
+  image: devkitpro/devkitarm:latest
+  script:
+    - source /etc/profile.d/devkit-env.sh
+    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=${DEVKITPRO}/cmake/3DS.cmake
+    - cmake --build build
+    - 3dsxtool build/luxon_server.elf build/luxon_server.3dsx || 3dsxtool build/luxon_server build/luxon_server.3dsx
