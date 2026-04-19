@@ -22,15 +22,25 @@ Chat opcodes aren't implemented yet.
 
 ## Getting Started
 
-### Prerequisites
+There are three ways to get a build of Luxon Server: downloading a stable release, grabbing the latest CI build, or compiling it yourself. 
 
+### 1. Download a Release (Recommended)
+For most users, the easiest and most stable way to get started is to download the latest pre-compiled release.
+* [Download from GitHub Releases](https://github.com/niansa/LuxonServer/releases)
+
+### 2. Download from CI (Bleeding Edge)
+If you need the absolute latest features or bug fixes that haven't been released yet, you can download the build artifacts directly from the CI pipelines.
+* [Download from GitLab Pipelines](https://gitlab.com/luxon_project/LuxonServer/-/pipelines)
+
+### 3. Build from Source
+If you prefer to compile the server yourself, plan to modify the code, or would like to use plugins you can build Luxon Server from source.
+
+#### Prerequisites
 To build Luxon Server, you will need:
-
 * CMake 3.16 or higher
 * A C++ compiler and standard library capable of supporting **C++23** and exceptions support
 
-### Building
-
+#### Building
 The project uses standard CMake build procedures.
 
 ```bash
@@ -41,16 +51,18 @@ cmake ..
 cmake --build .
 ```
 
+---
+
 ### Configuration
 
-The server is configured via a config.yml file. A config.example.yml is provided in the repository.
+The server is configured via a `config.yml` file. A `config.example.yml` is provided in the repository.
 The configuration defines the listening ports for the three main server components:
 
 1. **NameServer:** Handles initial region requests (ignored for now) and authentication (stubbed for now).
 2. **MasterServer:** Handles lobbies and matchmaking.
 3. **GameServer:** Hosts the actual room logic and relay.
 
-By default, an HTTP server is also available to provide a web-based dashboard for monitoring connections and server load.
+By default, an HTTP server is also available on port `5088` to provide a web-based dashboard for monitoring connections and server load.
 
 ## Usage
 
