@@ -32,6 +32,9 @@
 #endif
 #include <cstdint>
 #include <luxon/enet_peer.hpp>
+#ifdef LUXON_ENET_ENABLE_METRICS
+#include <luxon/enet_metrics.hpp>
+#endif
 #include <commoncpp/timer.hpp>
 
 namespace server {
@@ -91,6 +94,11 @@ private:
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     std::optional<HttpServer> http_server_;
+#endif
+
+#ifdef LUXON_ENET_ENABLE_METRICS
+    enet::Metrics enet_metrics_;
+    common::Timer enet_metrics_last_tick_;
 #endif
 
     bool running_;

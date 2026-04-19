@@ -457,9 +457,21 @@ bool ServerManager::run_once() {
 
         // Trigger updates
         if (slow_update) {
+            ZoneScopedN("service_server_slow_updates");
+
+#ifdef LUXON_ENET_ENABLE_METRICS
+            // Tick enet metrics
+            const auto enet_metrics_last_tick_ms = enet_metrics_last_tick_.get();
+            if (enet_metrics_last_tick_ms > 1000) {
+                const double enet_metrics_last_tick_s = double(enet_metrics_last_tick_ms) * 0.001;
+                enet_metrics_last_tick_.reset();
+                enet_metrics_.tick(enet_metrics_last_tick_s);
+            }
+
+#endif
+            // Update connection handlers
             for (auto& connection : connections_) {
                 try {
-                    ZoneScopedN("service_server_slow_updates");
                     connection->HandleSlowUpdate();
                 } catch (const std::exception& e) {
                     auto& peer = *connection->get_peer();
@@ -507,7 +519,14 @@ void ServerManager::setup() {
         // Create enet server and configure it
         log_->info("Setting up {} on port {}", ServerTypeToString(config.type), config.port);
 
-        auto& server = servers_.try_emplace(config.port, cfg).first->second;
+        auto& server = servers_
+                           .try_emplace(config.port, cfg
+#ifdef LUXON_ENET_ENABLE_METRICS
+                                        ,
+                                        enet_metrics_
+#endif
+                                        )
+                           .first->second;
 
         server.on_peer_connected = [this, server_type = config.type](std::shared_ptr<enet::EnetPeer> enetPeer) {
             // Construct peer
