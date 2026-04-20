@@ -69,11 +69,11 @@ CPMAddPackage("gl:niansa/commoncpp@1.1")
 # Include magic enum
 CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
 
-# Add main executable target
-add_executable(luxon_server
+# Add main library+executable target
+add_library(luxon_server_lib
     include/luxon/server/apps.hpp  include/luxon/server/global.hpp    include/luxon/server/logger.hpp  src/apps.cpp src/handler_gameserver.cpp    src/lobby.cpp src/platform.cpp
     include/luxon/server/authentication.hpp  include/luxon/server/handler_base.hpp    include/luxon/server/metrics.hpp  src/authentication.cpp src/handler_masterserver.cpp  src/logger.cpp src/platform.hpp
-    include/luxon/server/handler_gameserver.hpp    include/luxon/server/peer.hpp  src/handler_nameserver.cpp    src/main.cpp src/server_manager.cpp
+    include/luxon/server/handler_gameserver.hpp    include/luxon/server/peer.hpp  src/handler_nameserver.cpp  src/server_manager.cpp
     include/luxon/server/handler_masterserver.hpp  include/luxon/server/peer_persistence.hpp  src/game.cpp    src/metrics.cpp src/sock_selector.cpp
     include/luxon/server/game.hpp  include/luxon/server/handler_nameserver.hpp    include/luxon/server/server_manager.hpp src/incbin.h       src/yaml.cpp
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp
@@ -84,15 +84,19 @@ add_executable(luxon_server
     tracy/public/tracy/Tracy.hpp
     src/tracy_mem.cpp
 )
-target_link_libraries(luxon_server
-    sanmake commoncpp magic_enum luxon_enet luxon_ser luxon_http_parser luxon_visualizer
+target_link_libraries(luxon_server_lib
+    PRIVATE magic_enum luxon_visualizer luxon_http_parser
+    PUBLIC sanmake commoncpp luxon_enet luxon_ser
 )
-target_include_directories(luxon_server PRIVATE include/luxon/server tracy/public PUBLIC include)
-target_compile_definitions(luxon_server PRIVATE SQLITE_CUSTOM_INCLUDE=sqlite3-config.h)
+target_include_directories(luxon_server_lib PRIVATE include/luxon/server tracy/public PUBLIC include)
+target_compile_definitions(luxon_server_lib PRIVATE SQLITE_CUSTOM_INCLUDE=sqlite3-config.h)
+
+add_executable(luxon_server src/main.cpp)
+target_link_libraries(luxon_server luxon_server_lib)
 
 # Windows specific fixes
 if (MSVC)
-    target_compile_definitions(luxon_server PUBLIC NOMINMAX)
+    target_compile_definitions(luxon_server_lib PUBLIC NOMINMAX)
 endif()
 
 if (LUXON_USE_EMBED_RESOURCE)
@@ -101,18 +105,18 @@ if (LUXON_USE_EMBED_RESOURCE)
         CPMAddPackage("gh:ankurvdev/embedresource@0.0.12")
     endif()
     add_resource_library(luxon_server_resources OBJECT RESOURCE_COLLECTION_NAME http_resources RESOURCES "${WEB_ROOT_PATH}/index.html;${WEB_ROOT_PATH}/stats.html;${WEB_ROOT_PATH}/style.css")
-    target_link_libraries(luxon_server luxon_server_resources)
+    target_link_libraries(luxon_server_lib PRIVATE luxon_server_resources)
     add_compile_definitions(LUXON_USE_EMBED_RESOURCE)
 endif()
 
 # Configuration
 if (LUXON_SERVER_POLL)
-    target_compile_definitions(luxon_server PRIVATE LUXON_SERVER_POLL)
+    target_compile_definitions(luxon_server_lib PRIVATE LUXON_SERVER_POLL)
 endif()
 
 if (LUXON_SERVER_ENABLE_WEBSERVER)
-    target_sources(luxon_server PRIVATE include/luxon/server/http_server.hpp src/http_server.cpp)
-    target_compile_definitions(luxon_server PRIVATE
+    target_sources(luxon_server_lib PRIVATE include/luxon/server/http_server.hpp src/http_server.cpp)
+    target_compile_definitions(luxon_server_lib PRIVATE
         LUXON_SERVER_ENABLE_WEBSERVER
         LUXON_SERVER_WEB_ROOT="${WEB_ROOT_PATH}"
     )
@@ -121,37 +125,37 @@ endif()
 if (LUXON_SERVER_ENABLE_PLUGINS)
     CPMAddPackage("gl:niansa/minicoropp@1.0")
 
-    target_sources(luxon_server PRIVATE
+    target_sources(luxon_server_lib PRIVATE
         include/luxon/server/game_plugin_base.hpp src/game_plugin_base.cpp
         include/luxon/server/game_plugin_registry.hpp src/game_plugin_registry.cpp
         include/luxon/server/sidethread.hpp
     )
-    target_link_libraries(luxon_server minicoropp)
-    target_compile_definitions(luxon_server PRIVATE LUXON_SERVER_ENABLE_PLUGINS)
+    target_link_libraries(luxon_server_lib PUBLIC minicoropp)
+    target_compile_definitions(luxon_server_lib PRIVATE LUXON_SERVER_ENABLE_PLUGINS)
 endif()
 
 if (LUXON_SERVER_USE_SPDLOG)
-    target_link_libraries(luxon_server spdlog::spdlog)
-    target_compile_definitions(luxon_server PUBLIC LUXON_SERVER_USE_SPDLOG)
+    target_link_libraries(luxon_server_lib PUBLIC spdlog::spdlog)
+    target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_USE_SPDLOG)
 endif()
 
 if (LUXON_SERVER_TRACY)
-    target_sources(luxon_server PRIVATE tracy/public/TracyClient.cpp)
-    target_compile_definitions(luxon_server PRIVATE TRACY_ENABLE)
+    target_sources(luxon_server_lib PRIVATE tracy/public/TracyClient.cpp)
+    target_compile_definitions(luxon_server_lib PRIVATE TRACY_ENABLE)
     if (LUXON_SERVER_TRACY_ON_DEMAND)
-        target_compile_definitions(luxon_server PRIVATE TRACY_ON_DEMAND)
+        target_compile_definitions(luxon_server_lib PRIVATE TRACY_ON_DEMAND)
     endif()
 endif()
 
 # Platform dependent configuration
-target_compile_definitions(luxon_server PUBLIC PLATFORM="${CMAKE_SYSTEM_NAME}")
+target_compile_definitions(luxon_server_lib PUBLIC PLATFORM="${CMAKE_SYSTEM_NAME}")
 if (CMAKE_SYSTEM_NAME STREQUAL Linux)
-    target_compile_definitions(luxon_server PUBLIC PLATFORM_LINUX)
+    target_compile_definitions(luxon_server_lib PUBLIC PLATFORM_LINUX)
 elseif (CMAKE_SYSTEM_NAME STREQUAL Windows)
-    target_compile_definitions(luxon_server PUBLIC PLATFORM_WINDOWS)
-    target_link_libraries(luxon_server ws2_32)
+    target_compile_definitions(luxon_server_lib PUBLIC PLATFORM_WINDOWS)
+    target_link_libraries(luxon_server_lib PRIVATE ws2_32)
 elseif (CMAKE_SYSTEM_NAME STREQUAL Nintendo3DS)
-    target_compile_definitions(luxon_server PUBLIC PLATFORM_3DS)
+    target_compile_definitions(luxon_server_lib PUBLIC PLATFORM_3DS)
 endif()
 
 
@@ -195,7 +199,7 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
     get_property(REGISTERED_PLUGINS GLOBAL PROPERTY LUXON_REGISTERED_PLUGINS)
     if (REGISTERED_PLUGINS)
         message(STATUS "[Luxon] Linking plugins to server: ${REGISTERED_PLUGINS}")
-        target_link_libraries(luxon_server "$<LINK_LIBRARY:WHOLE_ARCHIVE,${REGISTERED_PLUGINS}>")
+        target_link_libraries(luxon_server_lib "$<LINK_LIBRARY:WHOLE_ARCHIVE,${REGISTERED_PLUGINS}>")
     else()
         message(FATAL_ERROR "[Luxon] No plugins were registered, but LUXON_SERVER_ENABLE_PLUGINS is ON")
     endif()

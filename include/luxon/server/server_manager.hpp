@@ -311,5 +311,16 @@ public:
     /// \brief Gets the maximum allowed peers per game
     ///
     uint8_t get_max_game_peers() const { return max_game_peers_; }
+
+    ///
+    /// \brief Gets list of servers
+    ///
+    auto get_servers() {
+        std::vector<std::pair<uint16_t, enet::EnetServer *>> fres;
+        fres.reserve(servers_.size());
+        for (auto& [port, server] : servers_)
+            fres.push_back({port, &server});
+        return fres;
+    }
 };
 } // namespace server

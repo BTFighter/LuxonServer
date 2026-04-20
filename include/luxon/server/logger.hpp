@@ -5,6 +5,7 @@
 
 #include <string>
 #include <memory>
+#include <functional>
 #ifdef LUXON_SERVER_USE_SPDLOG
 #include <spdlog/spdlog.h>
 #else
@@ -15,6 +16,8 @@ namespace server {
 #ifdef LUXON_SERVER_USE_SPDLOG
 using log_level = spdlog::level::level_enum;
 using logger = spdlog::logger;
+
+extern std::function<std::shared_ptr<logger>(const std::string& name)> custom_create_logger;
 #else
 enum class log_level { trace, debug, info, warn, err, critical, off };
 
@@ -41,6 +44,8 @@ public:
     template <typename... Args> void error(std::format_string<Args...> fmt, Args&&...args) { log(log_level::err, fmt, std::forward<Args>(args)...); }
     template <typename... Args> void critical(std::format_string<Args...> fmt, Args&&...args) { log(log_level::critical, fmt, std::forward<Args>(args)...); }
 };
+
+extern std::function<void(log_level level, std::string message)> custom_log_sink;
 #endif
 
 std::shared_ptr<logger> create_logger(const std::string& name);

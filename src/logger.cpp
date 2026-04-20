@@ -12,9 +12,13 @@
 #endif
 
 namespace server {
-
 #ifdef LUXON_SERVER_USE_SPDLOG
+std::function<std::shared_ptr<logger>(const std::string& name)> custom_create_logger;
+
 std::shared_ptr<server::logger> create_logger(const std::string& name) {
+    if (custom_create_logger)
+        return custom_create_logger(name);
+
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
     return spdlog::stdout_color_mt(name);
 #else
@@ -22,7 +26,12 @@ std::shared_ptr<server::logger> create_logger(const std::string& name) {
 #endif
 }
 #else
+std::function<void(log_level level, std::string message)> custom_log_sink;
+
 void logger::log_raw(log_level level, std::string message) {
+    if (custom_log_sink) [[unlikely]]
+        return custom_log_sink(level, std::format("[{}] {}", name_, message));
+
     std::string_view level_str;
     switch (level) {
     case log_level::trace:
