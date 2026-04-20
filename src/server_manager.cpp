@@ -144,13 +144,38 @@ template <typename Fn> void ForEachSequenceItem(Yaml::Node& section, Fn&& fn) {
 }
 
 void ParseServerSection(ServerManagerConfig& config, ServerType current_type, Yaml::Node& section) {
-    ForEachSequenceItem(section, [&](Yaml::Node& item) {
+    struct {
         bool allow_unsolicited = false;
-        if (!item["allow_unsolicited"].IsNone())
-            allow_unsolicited = item["allow_unsolicited"].As<bool>();
+        std::string stun_host;
+        uint16_t stun_port = 19302;
+    } state;
 
-        if (!item["port"].IsNone())
-            config.servers.push_back({current_type, item["port"].As<uint16_t>(), allow_unsolicited});
+    ForEachSequenceItem(section, [&](Yaml::Node& item) {
+        if (!item["allow_unsolicited"].IsNone())
+            state.allow_unsolicited = item["allow_unsolicited"].As<bool>();
+
+        if (!item["stun_server"].IsNone()) {
+            Yaml::Node& stun = item["stun_server"];
+
+            if (stun.IsScalar()) {
+                state.stun_host = stun.As<std::string>();
+            } else if (stun.IsSequence()) {
+                ForEachSequenceItem(stun, [&](Yaml::Node& entry) {
+                    if (!entry["host"].IsNone())
+                        state.stun_host = entry["host"].As<std::string>();
+
+                    if (!entry["port"].IsNone())
+                        state.stun_port = entry["port"].As<uint16_t>();
+                });
+            } else {
+                throw std::runtime_error("stun_server must be either a string or a sequence");
+            }
+        }
+
+        if (!item["port"].IsNone()) {
+            config.servers.push_back({current_type, item["port"].As<uint16_t>(), state.allow_unsolicited, std::move(state.stun_host), state.stun_port});
+            state = {};
+        }
 
         if (!item["address"].IsNone())
             config.endpoints.push_back({current_type, ServerProtocol::UDP, item["address"].As<std::string>()});
@@ -638,12 +663,24 @@ void ServerManager::setup() {
             handlerPtr->HandleConnect();
         };
 
+        server.on_stun_bind = [this, &config](enet::EnetEndpoint&& ep) {
+            log_->info("[STUN:{}] NAT punch complete  --> {} <-- ", config.port, ep.to_string());
+        };
+
         // Make server ready for listening
         log_->info("Starting {} on port {}", ServerTypeToString(config.type), config.port);
 
         if (!server.bind(config.port)) {
             log_->error("Failed to bind {} to port {}!", ServerTypeToString(config.type), config.port);
             continue;
+        }
+
+        // Start STUN binding request if enabled
+        if (!config.stun_server_host.empty()) {
+            if (server.request_stun_binding(config.stun_server_host.c_str(), config.stun_server_port))
+                log_->info("[STUN:{}] Starting NAT punch via STUN server: {}:{}", config.port, config.stun_server_host, config.stun_server_port);
+            else
+                log_->error("[STUN:{}] Failed to start NAT punch via STUN server", config.port);
         }
 
         // Add server to sock selector
