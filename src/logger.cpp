@@ -30,7 +30,7 @@ std::function<void(log_level level, std::string message)> custom_log_sink;
 
 void logger::log_raw(log_level level, std::string message) {
     if (custom_log_sink) [[unlikely]]
-        return custom_log_sink(level, std::format("[{}] {}", name_, message));
+        return custom_log_sink(level, std::format("[{}] {}", name_, std::move(message)));
 
     std::string_view level_str;
     switch (level) {
