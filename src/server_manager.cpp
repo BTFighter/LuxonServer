@@ -145,15 +145,15 @@ template <typename Fn> void ForEachSequenceItem(Yaml::Node& section, Fn&& fn) {
 
 void ParseServerSection(ServerManagerConfig& config, ServerType current_type, Yaml::Node& section) {
     ForEachSequenceItem(section, [&](Yaml::Node& item) {
-        if (!item["port"].IsNone())
-            config.servers.push_back({current_type, item["port"].As<uint16_t>()});
-
         bool allow_unsolicited = false;
         if (!item["allow_unsolicited"].IsNone())
             allow_unsolicited = item["allow_unsolicited"].As<bool>();
 
+        if (!item["port"].IsNone())
+            config.servers.push_back({current_type, item["port"].As<uint16_t>(), allow_unsolicited});
+
         if (!item["address"].IsNone())
-            config.endpoints.push_back({current_type, ServerProtocol::UDP, item["address"].As<std::string>(), allow_unsolicited});
+            config.endpoints.push_back({current_type, ServerProtocol::UDP, item["address"].As<std::string>()});
     });
 }
 
@@ -538,7 +538,7 @@ void ServerManager::setup() {
                                         )
                            .first->second;
 
-        server.on_peer_connected = [this, server_type = config.type](std::shared_ptr<enet::EnetPeer> enetPeer) {
+        server.on_peer_connected = [this, &config](std::shared_ptr<enet::EnetPeer> enetPeer) {
             // Construct peer
             auto peer = std::make_shared<Peer>();
             peer->enet_peer = enetPeer;
@@ -547,10 +547,11 @@ void ServerManager::setup() {
 #ifndef NDEBUG
             peer->log->set_level(log_level::trace);
 #endif
-            peer->log->info("Peer {} constructed with {} handler", peer->enet_peer->peer_id(), ServerTypeToString(server_type));
+            peer->log->info("Peer {} constructed with {} handler", peer->enet_peer->peer_id(), ServerTypeToString(config.type));
 
             // Construct handler
-            auto handler = ServerTypeToHandler(server_type, *this, std::move(peer));
+            auto handler = ServerTypeToHandler(config.type, *this, std::move(peer));
+            handler->set_allow_unsolicited(config.allow_unsolicited);
 
             // Handler pointer must be owning with plugins enabled to ensure no destruction while coroutine is active
 #ifdef LUXON_SERVER_ENABLE_PLUGINS

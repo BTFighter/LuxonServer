@@ -580,6 +580,31 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
             return;
         }
         }
+    } else if (allow_unsolicited_) {
+        // Unsolicited join
+        if (req.operation_code == OpCodes::Matchmaking::JoinGame) {
+            const auto params = models::JoinOrCreateGame::decode(req);
+            if (!params) {
+                send(proto_->Serialize(params.error()));
+                return;
+            }
+
+            // Find game
+            auto lobby = peer_->persistent->app->get_lobby(); // Restrict to default lobby for now
+            auto game_res = lobby->games.find(params->get<DictKeyCodes::GameAndActor::GameId>());
+            if (game_res == lobby->games.end()) {
+                const ser::OperationResponseMessage resp{
+                    .operation_code = req.operation_code, .return_code = ErrorCodes::Matchmaking::GameIdNotExists, .debug_message = "Game does not exist"};
+                send(proto_->Serialize(resp));
+                return;
+            }
+
+            // Set as current game and disallow unsolicited join to prevent infinite recursion if game is nullptr
+            peer_->persistent->current_game = game_res->second.lock();
+            allow_unsolicited_ = false;
+
+            return HandleOperationRequest(std::move(req), is_encrypted, cmd_header);
+        }
     }
 
     return HandlerBase::HandleOperationRequest(std::move(req), is_encrypted, cmd_header);

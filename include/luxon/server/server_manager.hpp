@@ -54,13 +54,13 @@ enum class ServerType { None, NameServer, MasterServer, GameServer };
 struct ServerConfig {
     ServerType type = ServerType::None;
     uint16_t port = 0;
+    bool allow_unsolicited = false;
 };
 
 struct ServerEndpoint {
     ServerType type = ServerType::None;
     ServerProtocol protocol{};
     std::string address;
-    bool allow_unsolicited = false;
 };
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER

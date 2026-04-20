@@ -36,9 +36,12 @@ public:
     void send(const ser::ByteArray& payload, const enet::EnetSendOptions& opt = {0});
     void send(const std::expected<ser::ByteArray, ser::Error>& expected_payload, const enet::EnetSendOptions& opt = {0});
 
+    void set_allow_unsolicited(bool enable = true) { allow_unsolicited_ = enable; }
+
 protected:
     ServerManager& server_manager_;
     std::shared_ptr<Peer> peer_;
     std::unique_ptr<ser::IProtocol>& proto_;
+    bool allow_unsolicited_ = false;
 };
 } // namespace server
