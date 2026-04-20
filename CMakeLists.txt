@@ -56,18 +56,24 @@ endif()
 
 # Include spdlog
 if (LUXON_SERVER_USE_SPDLOG)
-    find_package(spdlog CONFIG)
-    if (NOT spdlog_FOUND)
-        set(SPDLOG_USE_STD_FORMAT ON CACHE BOOL "Force use of std::format for spdlog" FORCE)
-        CPMAddPackage("gh:gabime/spdlog@1.17.0")
+    if (NOT TARGET spdlog)
+        find_package(spdlog CONFIG)
+        if (NOT spdlog_FOUND)
+            set(SPDLOG_USE_STD_FORMAT ON CACHE BOOL "Force use of std::format for spdlog" FORCE)
+            CPMAddPackage("gh:gabime/spdlog@1.17.0")
+        endif()
     endif()
 endif()
 
 # Include commoncpp
-CPMAddPackage("gl:niansa/commoncpp@1.1")
+if (NOT TARGET commoncpp)
+    CPMAddPackage("gl:niansa/commoncpp@1.1")
+endif()
 
 # Include magic enum
-CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
+if (NOT TARGET magic_enum)
+    CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
+endif()
 
 # Add main library+executable target
 add_library(luxon_server_lib
