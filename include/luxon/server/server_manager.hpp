@@ -52,14 +52,85 @@ template <typename T> using HandlerPtr = std::unique_ptr<T>;
 enum class ServerType { None, NameServer, MasterServer, GameServer };
 
 struct ServerConfig {
-    ServerType type;
-    uint16_t port;
+    ServerType type = ServerType::None;
+    uint16_t port = 0;
 };
 
 struct ServerEndpoint {
-    ServerType type;
+    ServerType type = ServerType::None;
     ServerProtocol protocol{};
     std::string address;
+    bool allow_unsolicited = false;
+};
+
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+struct HttpServerConfig {
+    bool enabled = false;
+    std::string address = "0.0.0.0";
+    uint16_t port = 5088;
+};
+#endif
+
+///
+/// \brief Runtime configuration for ServerManager
+/// Can be built directly in C++ when embedding/loading the server as a shared library.
+///
+struct ServerManagerConfig {
+    std::vector<ServerConfig> servers;
+    std::vector<ServerEndpoint> endpoints;
+    unsigned max_connections = 0;
+    ///
+    /// \brief Maximum peers per game.
+    /// Values >= 255 are normalized to the legacy internal value 0 when applied.
+    ///
+    unsigned max_game_peers = 0;
+
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+    std::optional<HttpServerConfig> http;
+#endif
+
+    ///
+    /// \brief Add a listening server
+    ///
+    ServerManagerConfig& add_server(ServerType type, uint16_t port) {
+        servers.push_back({type, port});
+        return *this;
+    }
+
+    ///
+    /// \brief Add a listening server and a matching external UDP endpoint
+    ///
+    ServerManagerConfig& add_server(ServerType type, uint16_t port, std::string external_udp_address) {
+        servers.push_back({type, port});
+        endpoints.push_back({type, ServerProtocol::UDP, std::move(external_udp_address)});
+        return *this;
+    }
+
+    ///
+    /// \brief Add an externally reachable endpoint
+    ///
+    ServerManagerConfig& add_endpoint(ServerType type, ServerProtocol protocol, std::string address) {
+        endpoints.push_back({type, protocol, std::move(address)});
+        return *this;
+    }
+
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+    ///
+    /// \brief Enable embedded HTTP server
+    ///
+    ServerManagerConfig& enable_http(std::string address = "0.0.0.0", uint16_t port = 5088) {
+        http = HttpServerConfig{true, std::move(address), port};
+        return *this;
+    }
+
+    ///
+    /// \brief Disable embedded HTTP server
+    ///
+    ServerManagerConfig& disable_http() {
+        http.reset();
+        return *this;
+    }
+#endif
 };
 
 class ServerManager {
@@ -93,6 +164,7 @@ private:
     common::Timer last_slow_update_;
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
+    std::optional<HttpServerConfig> http_config_;
     std::optional<HttpServer> http_server_;
 #endif
 
@@ -101,12 +173,15 @@ private:
     common::Timer enet_metrics_last_tick_;
 #endif
 
-    bool running_;
+    bool running_ = false;
 
     unsigned max_connections_ = 0;
     uint8_t max_game_peers_ = 0;
 
     void setup();
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+    void setup_http_server();
+#endif
 
     void run_scheduled_tasks();
 
@@ -115,7 +190,25 @@ public:
     Metric busy_time, idle_time;
 #endif
 
-    ServerManager(const std::string& config_file);
+    ///
+    /// \brief Construct manager from YAML config file
+    ///
+    explicit ServerManager(const std::string& config_file);
+
+    ///
+    /// \brief Construct manager directly from C++ configuration
+    ///
+    explicit ServerManager(ServerManagerConfig config);
+
+    ///
+    /// \brief Load ServerManagerConfig from YAML file
+    ///
+    static ServerManagerConfig load_config_from_file(const std::string& config_file);
+
+    ///
+    /// \brief Parse ServerManagerConfig from YAML contents
+    ///
+    static ServerManagerConfig parse_config(const std::string& config_contents);
 
     ///
     /// \brief Runs server until stop() is called

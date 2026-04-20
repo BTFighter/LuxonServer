@@ -77,7 +77,6 @@ ServerType StringToServerType(const std::string& str) {
     if (str == "GameServer")
         return ServerType::GameServer;
 
-    // Throw error
     throw std::runtime_error("Unknown ServerType: " + str);
 }
 
@@ -89,7 +88,6 @@ ServerProtocol StringToEndpointProtocol(const std::string& str) {
     if (str == "WebSocket")
         return ServerProtocol::WebSocket;
 
-    // Throw error
     throw std::runtime_error("Unknown protocol: " + str);
 }
 
@@ -127,24 +125,96 @@ HandlerPtr<HandlerBase> ServerTypeToHandler(ServerType type, ServerManager& serv
         return nullptr;
     }
 }
-} // namespace
 
-ServerManager::ServerManager(const std::string& config_file) {
-    log_ = create_logger("ServerManager");
-#ifndef NDEBUG
-    log_->set_level(log_level::trace);
+bool IsServerTypeSection(std::string_view key) { return key == "NameServer" || key == "MasterServer" || key == "GameServer"; }
+
+uint8_t NormalizeMaxGamePeers(unsigned value) {
+    uint8_t normalized = static_cast<uint8_t>(std::min<unsigned>(value, 255));
+    if (normalized == 255)
+        normalized = 0;
+    return normalized;
+}
+
+template <typename Fn> void ForEachSequenceItem(Yaml::Node& section, Fn&& fn) {
+    if (!section.IsSequence())
+        return;
+
+    for (auto itemIt = section.Begin(); itemIt != section.End(); itemIt++)
+        fn((*itemIt).second);
+}
+
+void ParseServerSection(ServerManagerConfig& config, ServerType current_type, Yaml::Node& section) {
+    ForEachSequenceItem(section, [&](Yaml::Node& item) {
+        if (!item["port"].IsNone())
+            config.servers.push_back({current_type, item["port"].As<uint16_t>()});
+
+        bool allow_unsolicited = false;
+        if (!item["allow_unsolicited"].IsNone())
+            allow_unsolicited = item["allow_unsolicited"].As<bool>();
+
+        if (!item["address"].IsNone())
+            config.endpoints.push_back({current_type, ServerProtocol::UDP, item["address"].As<std::string>(), allow_unsolicited});
+    });
+}
+
+void ParseExternalSection(ServerManagerConfig& config, Yaml::Node& section) {
+    ForEachSequenceItem(section, [&](Yaml::Node& item) {
+        ServerType ext_type = ServerType::None;
+        ServerProtocol ext_proto = ServerProtocol::UDP;
+        std::string ext_addr;
+        bool addr_found = false;
+
+        if (!item["type"].IsNone())
+            ext_type = StringToServerType(item["type"].As<std::string>());
+
+        if (!item["protocol"].IsNone())
+            ext_proto = StringToEndpointProtocol(item["protocol"].As<std::string>());
+
+        if (!item["address"].IsNone()) {
+            ext_addr = item["address"].As<std::string>();
+            addr_found = true;
+        }
+
+        if (ext_type != ServerType::None && addr_found)
+            config.endpoints.push_back({ext_type, ext_proto, std::move(ext_addr)});
+    });
+}
+
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+void ParseHttpSection(ServerManagerConfig& config, Yaml::Node& section) {
+    HttpServerConfig http_cfg;
+    bool seen_any_item = false;
+
+    ForEachSequenceItem(section, [&](Yaml::Node& item) {
+        seen_any_item = true;
+
+        if (!item["active"].IsNone())
+            http_cfg.enabled = item["active"].As<bool>();
+        if (!item["address"].IsNone())
+            http_cfg.address = item["address"].As<std::string>();
+        if (!item["port"].IsNone())
+            http_cfg.port = item["port"].As<uint16_t>();
+    });
+
+    if (seen_any_item)
+        config.http = std::move(http_cfg);
+}
 #endif
 
-    log_->debug("Reading config file contents");
-    std::string contents = LoadFile(config_file);
+template <typename T> T *GetRawPointer(T *ptr) { return ptr; }
 
-    // Parse YAML
-    log_->info("Parsing config file");
+template <typename T> T *GetRawPointer(const std::shared_ptr<T>& ptr) { return ptr.get(); }
+
+template <typename T> T *GetRawPointer(const std::unique_ptr<T>& ptr) { return ptr.get(); }
+} // namespace
+
+ServerManagerConfig ServerManager::load_config_from_file(const std::string& config_file) { return parse_config(LoadFile(config_file)); }
+
+ServerManagerConfig ServerManager::parse_config(const std::string& config_contents) {
     Yaml::Node root;
 
     try {
-        // MiniYaml parses the string directly
-        Yaml::Parse(root, contents);
+        Yaml::Parse(root, config_contents);
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("YAML Parsing failed: ") + e.what());
     }
@@ -152,110 +222,47 @@ ServerManager::ServerManager(const std::string& config_file) {
     if (!root.IsMap())
         throw std::runtime_error("Root of config must be a map");
 
-    // Iterate over the top-level sections (NameServer, MasterServer, etc.)
-    log_->info("Extracting data from config file");
+    ServerManagerConfig config;
 
     for (auto it = root.Begin(); it != root.End(); it++) {
         std::string key = (*it).first;
         Yaml::Node& section = (*it).second;
 
-        // Handle known server types (NameServer, MasterServer, GameServer)
-        bool isKnownType = (key == "NameServer" || key == "MasterServer" || key == "GameServer");
-
-        if (isKnownType) {
-            ServerType currentType = StringToServerType(key);
-
-            if (section.IsSequence()) {
-                for (auto itemIt = section.Begin(); itemIt != section.End(); itemIt++) {
-                    Yaml::Node& item = (*itemIt).second;
-
-                    if (!item["port"].IsNone()) {
-                        uint16_t port = item["port"].As<uint16_t>();
-                        configs_.push_back({currentType, port});
-                    }
-                    if (!item["address"].IsNone()) {
-                        std::string addr = item["address"].As<std::string>();
-                        endpoints.push_back({currentType, ServerProtocol::UDP, addr});
-                    }
-                }
-            }
-        }
-        // Handle "External" Section
-        else if (key == "External") {
-            if (section.IsSequence()) {
-                for (auto itemIt = section.Begin(); itemIt != section.End(); itemIt++) {
-                    Yaml::Node& item = (*itemIt).second;
-
-                    ServerType extType = ServerType::None;
-                    ServerProtocol extProto = ServerProtocol::UDP;
-                    std::string extAddr;
-                    bool addrFound = false;
-
-                    if (!item["type"].IsNone()) {
-                        std::string typeStr = item["type"].As<std::string>();
-                        extType = StringToServerType(typeStr);
-                    }
-                    if (!item["protocol"].IsNone()) {
-                        std::string protoStr = item["protocol"].As<std::string>();
-                        extProto = StringToEndpointProtocol(protoStr);
-                    }
-                    if (!item["address"].IsNone()) {
-                        extAddr = item["address"].As<std::string>();
-                        addrFound = true;
-                    }
-
-                    if (extType != ServerType::None && addrFound)
-                        endpoints.push_back({extType, extProto, extAddr});
-                }
-            }
-        }
-        // Handle global max connections
-        else if (key == "MaxConnections" || key == "CCU") {
+        if (IsServerTypeSection(key)) {
+            ParseServerSection(config, StringToServerType(key), section);
+        } else if (key == "External") {
+            ParseExternalSection(config, section);
+        } else if (key == "MaxConnections" || key == "CCU") {
             if (!section.IsNone())
-                max_connections_ = section.As<unsigned>();
-        }
-        // Handle max peers per game
-        else if (key == "MaxGamePeers") {
-            if (!section.IsNone()) {
-                max_game_peers_ = std::min<unsigned>(section.As<unsigned>(), 255);
-                if (max_game_peers_ == 255)
-                    max_game_peers_ = 0;
-            }
-        }
+                config.max_connections = section.As<unsigned>();
+        } else if (key == "MaxGamePeers") {
+            if (!section.IsNone())
+                config.max_game_peers = section.As<unsigned>();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
-        // Handle "Http Server" Section
-        else if (key == "HTTP") {
-            bool httpActive = false;
-            std::string httpAddress = "0.0.0.0";
-            uint16_t httpPort = 5088;
-
-            if (section.IsSequence()) {
-                for (auto itemIt = section.Begin(); itemIt != section.End(); itemIt++) {
-                    Yaml::Node& item = (*itemIt).second;
-
-                    if (!item["active"].IsNone())
-                        httpActive = item["active"].As<bool>();
-                    if (!item["address"].IsNone())
-                        httpAddress = item["address"].As<std::string>();
-                    if (!item["port"].IsNone())
-                        httpPort = item["port"].As<uint16_t>();
-                }
-            }
-
-            if (httpActive) {
-                log_->info("Initializing HTTP Server on port {}", httpPort);
-                http_server_.emplace(*this);
-#ifndef LUXON_SERVER_POLL
-                http_server_->on_create_fd = std::bind(&SockSelector::add_read_fd, &sock_selector_, std::placeholders::_1);
-                http_server_->on_delete_fd = std::bind(&SockSelector::remove_read_fd, &sock_selector_, std::placeholders::_1);
+        } else if (key == "HTTP") {
+            ParseHttpSection(config, section);
 #endif
-                http_server_->bind(httpAddress, httpPort);
-            } else {
-                log_->debug("HTTP Server disabled in config.");
-            }
         }
-#endif
     }
+
+    return config;
+}
+
+ServerManager::ServerManager(const std::string& config_file) : ServerManager(load_config_from_file(config_file)) {}
+
+ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(config.endpoints)) {
+    log_ = create_logger("ServerManager");
+#ifndef NDEBUG
+    log_->set_level(log_level::trace);
+#endif
+
+    configs_ = std::move(config.servers);
+    max_connections_ = config.max_connections;
+    max_game_peers_ = NormalizeMaxGamePeers(config.max_game_peers);
+
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+    http_config_ = std::move(config.http);
+#endif
 
     log_->info("Config looks alright, setting up accordingly");
     setup();
@@ -334,33 +341,26 @@ bool ServerManager::delay(unsigned int milliseconds) {
 
 const std::string& ServerManager::get_endpoint_of(ServerType server_type, ServerProtocol server_proto) {
     ZoneScoped;
-
     std::vector<const std::string *> candidates;
     candidates.reserve(endpoints.size());
-
     // Collect all valid addresses for the requested type
     for (const auto& endpoint : endpoints)
         if (endpoint.type == server_type && endpoint.protocol == server_proto)
             candidates.push_back(&endpoint.address);
-
     // Handle cases where no config exists
     if (candidates.empty())
         throw std::runtime_error(std::format("No endpoint configuration found for {}", ServerTypeToString(server_type)));
-
     // Return a random address from the candidates
     static std::mt19937 generator{1234};
     std::uniform_int_distribution<size_t> distribution(0, candidates.size() - 1);
-
     return *candidates[distribution(generator)];
 }
 
 void ServerManager::run_scheduled_tasks() {
     ZoneScoped;
-
     // Check if queue is empty first to avoid segfaults on top()
     if (scheduled_tasks_.empty())
         return;
-
     const auto& task = scheduled_tasks_.top();
     if (task.execution_time < startup_time_.get()) {
         auto callback = task.cb;
@@ -380,7 +380,6 @@ void ServerManager::run() {
 
 bool ServerManager::run_once() {
     ZoneScoped;
-
     {
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Start idle performance timer
@@ -396,15 +395,12 @@ bool ServerManager::run_once() {
         // End idle performance timer
         const auto end_time = std::chrono::steady_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-
         // Store metric
         idle_time.add(static_cast<unsigned>(duration));
 #endif
     }
-
     {
         ZoneScopedN("run_once_busy");
-
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Start busy performance timer
         const auto start_time = std::chrono::steady_clock::now();
@@ -414,7 +410,6 @@ bool ServerManager::run_once() {
         const bool slow_update = last_slow_update_.get() > 250;
         if (slow_update)
             last_slow_update_.reset();
-
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
         // Run stuff that's queued to run in the main loop asap
         while (true) {
@@ -427,7 +422,6 @@ bool ServerManager::run_once() {
                     main_loop_calls_.pop();
                 }
             }
-
             if (fn)
                 fn();
             else
@@ -454,11 +448,9 @@ bool ServerManager::run_once() {
                 log_->warn("Uncaught exception: {}", e.what());
             }
         }
-
         // Trigger updates
         if (slow_update) {
             ZoneScopedN("service_server_slow_updates");
-
 #ifdef LUXON_ENET_ENABLE_METRICS
             // Tick enet metrics
             const auto enet_metrics_last_tick_ms = enet_metrics_last_tick_.get();
@@ -467,7 +459,6 @@ bool ServerManager::run_once() {
                 enet_metrics_last_tick_.reset();
                 enet_metrics_.tick(enet_metrics_last_tick_s);
             }
-
 #endif
             // Update connection handlers
             for (auto& connection : connections_) {
@@ -480,10 +471,8 @@ bool ServerManager::run_once() {
                 }
             }
         }
-
         // Run scheduled tasks
         run_scheduled_tasks();
-
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         // Update HTTP server
         if (http_server_)
@@ -506,8 +495,29 @@ bool ServerManager::run_once() {
     return running_;
 }
 
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+void ServerManager::setup_http_server() {
+    if (!http_config_ || !http_config_->enabled) {
+        log_->debug("HTTP Server disabled in config.");
+        return;
+    }
+
+    log_->info("Initializing HTTP Server on port {}", http_config_->port);
+    http_server_.emplace(*this);
+#ifndef LUXON_SERVER_POLL
+    http_server_->on_create_fd = std::bind(&SockSelector::add_read_fd, &sock_selector_, std::placeholders::_1);
+    http_server_->on_delete_fd = std::bind(&SockSelector::remove_read_fd, &sock_selector_, std::placeholders::_1);
+#endif
+    http_server_->bind(http_config_->address, http_config_->port);
+}
+#endif
+
 void ServerManager::setup() {
     ZoneScoped;
+
+#ifdef LUXON_SERVER_ENABLE_WEBSERVER
+    setup_http_server();
+#endif
 
     enet::EnetPeerConfig cfg;
     cfg.time_base = enet::EnetPeer::create_time_base();
@@ -544,12 +554,13 @@ void ServerManager::setup() {
 
             // Handler pointer must be owning with plugins enabled to ensure no destruction while coroutine is active
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
-            auto& handler_ptr = handler;
+            auto handler_ptr = handler;
 #else
             auto *handler_ptr = handler.get();
 #endif
+            auto *raw_handler = GetRawPointer(handler_ptr);
 
-            // Install handlers
+            // Install callbacks
             enetPeer->on_log_message = [this, handler = handler_ptr](enet::LogLevel enet_level, std::string_view message) {
                 // Convert log level
                 log_level level;
@@ -566,7 +577,7 @@ void ServerManager::setup() {
                 handler->get_peer()->log->log(level, "[ENet] {}", message);
             };
 
-            enetPeer->on_state_changed = [this, handler = handler_ptr](enet::EnetConnectionState state) {
+            enetPeer->on_state_changed = [this, handler = handler_ptr, raw_handler](enet::EnetConnectionState state) {
                 try {
                     handler->HandleENetConnectionStateChange(state);
                 } catch (const std::exception& e) {
@@ -577,7 +588,7 @@ void ServerManager::setup() {
                 if (state == enet::EnetConnectionState::Disconnected) {
                     handler->HandleDisconnect();
                     // Self-destruct handler, this will invalidate the pointer
-                    connections_.remove_if([handler](auto& v) { return v.get() == handler; });
+                    connections_.remove_if([raw_handler](auto& v) { return v.get() == raw_handler; });
                 }
             };
 
