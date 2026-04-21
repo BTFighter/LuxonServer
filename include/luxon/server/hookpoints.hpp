@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
 #include "global.hpp"
 #include "handler_base.hpp"
 
@@ -7,7 +8,6 @@
 #include <functional>
 #include <luxon/ser_types.hpp>
 
-#ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
 namespace luxon::enet {
 class EnetCommandHeader;
 }

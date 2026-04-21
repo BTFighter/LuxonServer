@@ -7,6 +7,7 @@
 #include "handler_gameserver.hpp"
 #include "server_manager.hpp"
 #include "authentication.hpp"
+#include "hookpoints.hpp"
 #include "lobby.hpp"
 
 #include <string>

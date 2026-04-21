@@ -8,6 +8,7 @@
 #include "handler_base.hpp"
 #include "string_hash.hpp"
 #include "logger.hpp"
+#include "hookpoints.hpp"
 #ifndef LUXON_SERVER_POLL
 #include "sock_selector.hpp"
 #endif
@@ -16,9 +17,6 @@
 #endif
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
 #include "sidethread.hpp"
-#endif
-#ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
-#include "hookpoints.hpp"
 #endif
 
 #include <string>
