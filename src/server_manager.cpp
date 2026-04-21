@@ -394,6 +394,13 @@ void ServerManager::run_scheduled_tasks() {
     }
 }
 
+void ServerManager::stun_keepalive(enet::EnetServer& server, uint16_t port) {
+    if (!server.keepalive_stun_binding())
+        log_->warn("[STUN:{}] Failed to keep alive server STUN binding", port);
+
+    add_scheduled_task(17500, std::bind(&ServerManager::stun_keepalive, this, std::ref(server), port));
+}
+
 void ServerManager::run() {
     // Main Service Loop
     running_ = true;
@@ -677,10 +684,12 @@ void ServerManager::setup() {
 
         // Start STUN binding request if enabled
         if (!config.stun_server_host.empty()) {
-            if (server.request_stun_binding(config.stun_server_host.c_str(), config.stun_server_port))
+            if (server.request_stun_binding(config.stun_server_host.c_str(), config.stun_server_port)) {
                 log_->info("[STUN:{}] Starting NAT punch via STUN server: {}:{}", config.port, config.stun_server_host, config.stun_server_port);
-            else
+                stun_keepalive(server, config.port);
+            } else {
                 log_->error("[STUN:{}] Failed to start NAT punch via STUN server", config.port);
+            }
         }
 
         // Add server to sock selector

@@ -194,6 +194,7 @@ private:
 #endif
 
     void run_scheduled_tasks();
+    void stun_keepalive(enet::EnetServer& server, uint16_t port);
 
 public:
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
