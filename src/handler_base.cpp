@@ -4,6 +4,8 @@
 #include "handler_base.hpp"
 #include "global.hpp"
 #include "peer_persistence.hpp"
+#include "hookpoints.hpp"
+#include "server_manager.hpp"
 
 #include <string_view>
 #include <format>
@@ -103,6 +105,8 @@ void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
 
     ser::Message& message = *expected_message;
     cmd.reset_payload();
+
+    LUXON_SERVER_HOOKPOINT(HandlerBase_HandleENetCommand_OnMessage, message, cmd.header);
 
     if (auto *req = std::get_if<ser::InitMessage>(&message))
         return HandleInitRequest(std::move(*req), cmd.header);
