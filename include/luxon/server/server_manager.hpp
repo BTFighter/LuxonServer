@@ -17,6 +17,9 @@
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
 #include "sidethread.hpp"
 #endif
+#ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
+#include "hookpoints.hpp"
+#endif
 
 #include <string>
 #include <vector>
@@ -147,6 +150,10 @@ public:
     std::unordered_map<std::pair<std::string, std::string>, std::weak_ptr<App>, StringPairHasher> apps;
     std::vector<std::unique_ptr<PeerPersistent>> peer_persistent_data;
     std::vector<ServerEndpoint> endpoints;
+
+#ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
+    Hookpoints hookpoints;
+#endif
 
 private:
 #ifndef LUXON_SERVER_POLL

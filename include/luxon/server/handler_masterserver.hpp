@@ -22,6 +22,14 @@ public:
     void HandleSlowUpdate() override;
     void HandleOperationRequest(ser::OperationRequestMessage&& req, bool is_encrypted, const enet::EnetCommandHeader& cmd_header) override;
 
+    std::shared_ptr<Lobby> get_joined_lobby() {
+        if (!joined_lobby_.has_value())
+            return {};
+
+        return joined_lobby_->lobby;
+    }
+    std::string_view get_joined_lobby_name() const { return joined_lobby_.has_value() ? joined_lobby_->lobby->name : std::string_view{}; }
+
 protected:
     struct JoinedLobby {
         std::shared_ptr<Lobby> lobby;
@@ -46,7 +54,6 @@ protected:
 
     void join_lobby(std::shared_ptr<Lobby> lobby);
     void leave_lobby() { joined_lobby_.reset(); }
-    std::string_view get_joined_lobby_name() const { return joined_lobby_.has_value() ? joined_lobby_->lobby->name : std::string_view{}; }
 
     void send_app_stats();
     ser::Dictionary get_lobby_stats(std::function<bool(const Lobby&)> lobby_filter = nullptr);

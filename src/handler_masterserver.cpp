@@ -248,6 +248,8 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
 
             std::string game_id = params->get<DictKeyCodes::GameAndActor::GameId>();
 
+            LUXON_SERVER_HOOKPOINT(MasterServer_HandleOperationRequest_CreateGame, game_id);
+
             // Get lobby
             auto lobby = get_requested_lobby(req);
             if (!lobby) {
@@ -297,6 +299,8 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
             }
 
             const std::string& game_id = params->get<DictKeyCodes::GameAndActor::GameId>();
+
+            LUXON_SERVER_HOOKPOINT(MasterServer_HandleOperationRequest_JoinGame, game_id, params->get<DictKeyCodes::AuthAndLobby::CreateIfNotExists>());
 
             // Get lobby
             auto lobby = get_requested_lobby(req);

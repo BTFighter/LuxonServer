@@ -14,6 +14,7 @@ include(cmake/CPM.cmake)
 option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
 option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of game plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
+option(LUXON_SERVER_HOOKPOINTS "Allows library user or plugins to hook into specific parts of Luxon Server" OFF)
 option(LUXON_USE_EMBED_RESOURCE "Use EmbedResource instead of incbin.h" OFF)
 option(LUXON_SERVER_TRACY "Build Luxon Server with tracy enabled" OFF)
 option(LUXON_SERVER_TRACY_ON_DEMAND "Only collect tracy data with profiler server connected" ON)
@@ -84,6 +85,7 @@ add_library(luxon_server_lib
     include/luxon/server/game.hpp  include/luxon/server/handler_nameserver.hpp    include/luxon/server/server_manager.hpp src/incbin.h       src/yaml.cpp
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp
     include/luxon/server/lobby.hpp    include/luxon/server/string_hash.hpp  src/handler_base.cpp src/json.hpp      src/peer_persistence.cpp
+    include/luxon/server/hookpoints.hpp
     include/luxon/server/data_model.hpp src/sqlite3.c src/sqlite3.h
     src/lobby_vt.hpp src/lobby_vt.cpp
 
@@ -102,7 +104,7 @@ target_link_libraries(luxon_server luxon_server_lib)
 
 # Windows specific fixes
 if (MSVC)
-    target_compile_definitions(luxon_server_lib PUBLIC NOMINMAX)
+    target_compile_definitions(luxon_server_lib PRIVATE NOMINMAX)
 endif()
 
 if (LUXON_USE_EMBED_RESOURCE)
@@ -117,14 +119,20 @@ endif()
 
 # Configuration
 if (LUXON_SERVER_POLL)
-    target_compile_definitions(luxon_server_lib PRIVATE LUXON_SERVER_POLL)
+    target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_POLL)
 endif()
 
 if (LUXON_SERVER_ENABLE_WEBSERVER)
     target_sources(luxon_server_lib PRIVATE include/luxon/server/http_server.hpp src/http_server.cpp)
-    target_compile_definitions(luxon_server_lib PRIVATE
+    target_compile_definitions(luxon_server_lib PUBLIC
         LUXON_SERVER_ENABLE_WEBSERVER
         LUXON_SERVER_WEB_ROOT="${WEB_ROOT_PATH}"
+    )
+endif()
+
+if (LUXON_SERVER_HOOKPOINTS)
+    target_compile_definitions(luxon_server_lib PUBLIC
+        LUXON_SERVER_ENABLE_HOOKPOINTS
     )
 endif()
 
@@ -137,7 +145,7 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
         include/luxon/server/sidethread.hpp
     )
     target_link_libraries(luxon_server_lib PUBLIC minicoropp)
-    target_compile_definitions(luxon_server_lib PRIVATE LUXON_SERVER_ENABLE_PLUGINS)
+    target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_ENABLE_PLUGINS)
 endif()
 
 if (LUXON_SERVER_USE_SPDLOG)
@@ -154,14 +162,14 @@ if (LUXON_SERVER_TRACY)
 endif()
 
 # Platform dependent configuration
-target_compile_definitions(luxon_server_lib PUBLIC PLATFORM="${CMAKE_SYSTEM_NAME}")
+target_compile_definitions(luxon_server_lib PRIVATE PLATFORM="${CMAKE_SYSTEM_NAME}")
 if (CMAKE_SYSTEM_NAME STREQUAL Linux)
-    target_compile_definitions(luxon_server_lib PUBLIC PLATFORM_LINUX)
+    target_compile_definitions(luxon_server_lib PRIVATE PLATFORM_LINUX)
 elseif (CMAKE_SYSTEM_NAME STREQUAL Windows)
-    target_compile_definitions(luxon_server_lib PUBLIC PLATFORM_WINDOWS)
+    target_compile_definitions(luxon_server_lib PRIVATE PLATFORM_WINDOWS)
     target_link_libraries(luxon_server_lib PRIVATE ws2_32)
 elseif (CMAKE_SYSTEM_NAME STREQUAL Nintendo3DS)
-    target_compile_definitions(luxon_server_lib PUBLIC PLATFORM_3DS)
+    target_compile_definitions(luxon_server_lib PRIVATE PLATFORM_3DS)
 endif()
 
 
