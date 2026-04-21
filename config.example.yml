@@ -42,6 +42,7 @@ External:
 
 # Misc settings
 
+EnableIPv6: true
 MaxConnections: 20
 MaxGamePeers: 0 # No explicit limit
 

@@ -257,6 +257,9 @@ ServerManagerConfig ServerManager::parse_config(const std::string& config_conten
             ParseServerSection(config, StringToServerType(key), section);
         } else if (key == "External") {
             ParseExternalSection(config, section);
+        } else if (key == "EnableIPv6") {
+            if (!section.IsNone())
+                config.enable_ipv6 = section.As<bool>();
         } else if (key == "MaxConnections" || key == "CCU") {
             if (!section.IsNone())
                 config.max_connections = section.As<unsigned>();
@@ -282,6 +285,7 @@ ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(c
 #endif
 
     configs_ = std::move(config.servers);
+    enable_ipv6_ = config.enable_ipv6;
     max_connections_ = config.max_connections;
     max_game_peers_ = NormalizeMaxGamePeers(config.max_game_peers);
 
@@ -677,7 +681,7 @@ void ServerManager::setup() {
         // Make server ready for listening
         log_->info("Starting {} on port {}", ServerTypeToString(config.type), config.port);
 
-        if (!server.bind(config.port)) {
+        if (!server.bind(config.port, enable_ipv6_)) {
             log_->error("Failed to bind {} to port {}!", ServerTypeToString(config.type), config.port);
             continue;
         }
