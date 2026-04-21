@@ -1,12 +1,18 @@
-Content Warning
-+ Works flawlessly
-- Tries to load plugin containing special event for player kicking
-
 Bomb Bots Arena
 - Tries to use unimplemented/stubbed chat opcodes
 - Freezes when beginning actual gameplay
 
+Construction Simulator 2015
++ Works flawlessly
+
+Content Warning
++ Works flawlessly
+- Tries to load plugin containing special event for player kicking
+
 Ducks Can Drive
++ Works flawlessly
+
+Easy Red 2
 + Works flawlessly
 
 KEABE: Kill 'Em All - Bunny Edition
