@@ -688,7 +688,7 @@ void ServerManager::setup() {
 
         // Start STUN binding request if enabled
         if (!config.stun_server_host.empty()) {
-            if (server.request_stun_binding(config.stun_server_host.c_str(), config.stun_server_port)) {
+            if (server.request_stun_binding(config.stun_server_host.c_str(), enable_ipv6_, config.stun_server_port)) {
                 log_->info("[STUN:{}] Starting NAT punch via STUN server: {}:{}", config.port, config.stun_server_host, config.stun_server_port);
                 stun_keepalive(server, config.port);
             } else {
