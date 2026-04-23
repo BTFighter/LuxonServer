@@ -262,7 +262,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(increase(luxon_global_disconnected_peers_client_total[$__rate_interval]))",
+          "expr": "sum(increase(luxon_global_disconnected_peers_client_total[$__interval]))",
           "legendFormat": "Client Disconnects",
           "refId": "A"
         },
@@ -271,7 +271,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(increase(luxon_global_disconnected_peers_server_total[$__rate_interval]))",
+          "expr": "sum(increase(luxon_global_disconnected_peers_server_total[$__interval]))",
           "legendFormat": "Server Kicks",
           "refId": "B"
         },
@@ -280,7 +280,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(increase(luxon_global_disconnected_peers_timeout_total[$__rate_interval]))",
+          "expr": "sum(increase(luxon_global_disconnected_peers_timeout_total[$__interval]))",
           "legendFormat": "Timeouts",
           "refId": "C"
         }
