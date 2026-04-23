@@ -129,6 +129,11 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
 
             // Send response
             send(proto_->Serialize(resp, is_encrypted));
+
+            // Disconnect on error
+            if (!peer_->is_authenticated())
+                peer_->disconnect();
+
             return;
         }
         }

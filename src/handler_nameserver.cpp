@@ -35,6 +35,11 @@ void NameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
 
             // Send payload
             send(proto_->Serialize(resp, is_encrypted));
+
+            // Disconnect on error
+            if (!peer_->is_authenticated())
+                peer_->disconnect();
+
             return;
         }
 

@@ -100,6 +100,10 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
             // Send response
             send(proto_->Serialize(resp, is_encrypted));
 
+            // Disconnect on error
+            if (!peer_->is_authenticated())
+                peer_->disconnect();
+
             // Handle successful authentication
             if (peer_->is_authenticated()) {
                 auto& app = peer_->persistent->app;
