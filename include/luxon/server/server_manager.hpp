@@ -162,6 +162,7 @@ private:
     std::shared_ptr<logger> log_;
     std::vector<ServerConfig> configs_;
     std::unordered_map<uint16_t, enet::EnetServer> servers_;
+    decltype(servers_)::iterator next_server_it_;
     std::list<HandlerPtr<HandlerBase>> connections_;
     std::priority_queue<ScheduledTask, std::vector<ScheduledTask>, std::greater<ScheduledTask>> scheduled_tasks_;
 #ifdef LUXON_SERVER_ENABLE_PLUGINS

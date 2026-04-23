@@ -431,6 +431,7 @@ bool ServerManager::run_once() {
         // End idle performance timer
         const auto end_time = std::chrono::steady_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
         // Store metric
         idle_time.add(static_cast<unsigned>(duration));
 #endif
@@ -469,7 +470,18 @@ bool ServerManager::run_once() {
 #ifndef LUXON_SERVER_POLL
         const auto& readable_socks = sock_selector_.get_readable_socks();
 #endif
-        for (auto& [port, server] : servers_) {
+
+        uint32_t remaining_timeout = 8000; // Global 8ms budget
+        size_t servers_to_process = servers_.size();
+
+        // Round-robin over servers to prevent starvation
+        while (servers_to_process > 0 && remaining_timeout > 0) {
+            // Wrap around to beginning if end is hit
+            if (next_server_it_ == servers_.end())
+                next_server_it_ = servers_.begin();
+
+            auto& [port, server] = *next_server_it_;
+
             try {
 #ifndef LUXON_SERVER_POLL
                 if (std::ranges::contains(readable_socks, server.native_handle()))
@@ -478,12 +490,22 @@ bool ServerManager::run_once() {
                     ZoneScopedN("service_server");
                     server.service_self();
                 }
-                if (!server.service_peers())
-                    log_->warn("Queueing UDP datagrams!");
+
+                // Service peers using whatever remains of global budget
+                if (!server.service_peers(remaining_timeout))
+                    log_->warn("Queueing UDP datagrams on port {}!", port);
             } catch (const std::exception& e) {
-                log_->warn("Uncaught exception: {}", e.what());
+                log_->warn("Uncaught exception on port {}: {}", port, e.what());
             }
+
+            // Move to the next server and decrement safety counter
+            ++next_server_it_;
+            --servers_to_process;
         }
+
+        if (servers_to_process > 0)
+            log_->warn("Network time budget exhausted! {} servers deferred to next frame.", servers_to_process);
+
         // Trigger updates
         if (slow_update) {
             ZoneScopedN("service_server_slow_updates");
@@ -507,9 +529,11 @@ bool ServerManager::run_once() {
                 }
             }
         }
+
         // Run scheduled tasks
         run_scheduled_tasks();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
+
         // Update HTTP server
         if (http_server_)
 #ifndef LUXON_SERVER_POLL
@@ -702,5 +726,7 @@ void ServerManager::setup() {
             log_->error("Failed to add new server to sock selector!", ServerTypeToString(config.type), config.port);
 #endif
     }
+
+    next_server_it_ = servers_.end();
 }
 } // namespace server
