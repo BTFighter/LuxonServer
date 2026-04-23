@@ -266,6 +266,9 @@ ServerManagerConfig ServerManager::parse_config(const std::string& config_conten
         } else if (key == "MaxGamePeers") {
             if (!section.IsNone())
                 config.max_game_peers = section.As<unsigned>();
+        } else if (key == "TickTimeBudget") {
+            if (!section.IsNone())
+                config.tick_time_budget = section.As<uint32_t>();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         } else if (key == "HTTP") {
             ParseHttpSection(config, section);
@@ -288,6 +291,7 @@ ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(c
     enable_ipv6_ = config.enable_ipv6;
     max_connections_ = config.max_connections;
     max_game_peers_ = NormalizeMaxGamePeers(config.max_game_peers);
+    tick_time_budget_ = NormalizeMaxGamePeers(config.tick_time_budget);
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     http_config_ = std::move(config.http);
@@ -471,40 +475,41 @@ bool ServerManager::run_once() {
         const auto& readable_socks = sock_selector_.get_readable_socks();
 #endif
 
-        uint32_t remaining_timeout = 8000; // Global 8ms budget
+        uint32_t remaining_timeout = tick_time_budget_;
         size_t servers_to_process = servers_.size();
 
-        // Round-robin over servers to prevent starvation
-        while (servers_to_process > 0 && remaining_timeout > 0) {
-            // Wrap around to beginning if end is hit
-            if (next_server_it_ == servers_.end())
-                next_server_it_ = servers_.begin();
+        {
+            ZoneScopedN("service_servers");
 
-            auto& [port, server] = *next_server_it_;
+            // Round-robin over servers to prevent starvation
+            while (servers_to_process > 0 && remaining_timeout > 0) {
+                // Wrap around to beginning if end is hit
+                if (next_server_it_ == servers_.end())
+                    next_server_it_ = servers_.begin();
 
-            try {
+                auto& [port, server] = *next_server_it_;
+
+                try {
 #ifndef LUXON_SERVER_POLL
-                if (std::ranges::contains(readable_socks, server.native_handle()))
+                    if (std::ranges::contains(readable_socks, server.native_handle()))
 #endif
-                {
-                    ZoneScopedN("service_server");
-                    server.service_self();
+                        server.service_self();
+
+                    // Service peers using whatever remains of global budget
+                    if (!server.service_peers(remaining_timeout))
+                        log_->warn("Queueing UDP datagrams on port {}!", port);
+                } catch (const std::exception& e) {
+                    log_->warn("Uncaught exception on port {}: {}", port, e.what());
                 }
 
-                // Service peers using whatever remains of global budget
-                if (!server.service_peers(remaining_timeout))
-                    log_->warn("Queueing UDP datagrams on port {}!", port);
-            } catch (const std::exception& e) {
-                log_->warn("Uncaught exception on port {}: {}", port, e.what());
+                // Move to the next server and decrement safety counter
+                ++next_server_it_;
+                --servers_to_process;
             }
-
-            // Move to the next server and decrement safety counter
-            ++next_server_it_;
-            --servers_to_process;
         }
 
         if (servers_to_process > 0)
-            log_->warn("Network time budget exhausted! {} servers deferred to next frame.", servers_to_process);
+            log_->warn("Tick time budget exhausted! {} servers deferred to next frame.", servers_to_process);
 
         // Trigger updates
         if (slow_update) {

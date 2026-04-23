@@ -85,10 +85,17 @@ struct ServerManagerConfig {
     bool enable_ipv6 = true;
     unsigned max_connections = 0;
     ///
-    /// \brief Maximum peers per game.
+    /// \brief Maximum peers per game
     /// Values >= 255 are normalized to the legacy internal value 0 when applied.
     ///
     unsigned max_game_peers = 0;
+
+    ///
+    /// \brief Tick time budget
+    /// Maximum amount of time run_once is allowed to take to service servers/peers.
+    /// Lower value means more clients can safely be serviced at once, but processing latency will increase faster.
+    ///
+    uint32_t tick_time_budget = 2000;
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     std::optional<HttpServerConfig> http;
@@ -188,6 +195,7 @@ private:
     bool enable_ipv6_ = true;
     unsigned max_connections_ = 0;
     uint8_t max_game_peers_ = 0;
+    uint32_t tick_time_budget_ = 2000;
 
     void setup();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
