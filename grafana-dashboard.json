@@ -173,7 +173,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "µs",
           "color": {
             "mode": "continuous-GrYlRd"
           }
@@ -431,7 +431,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "µs",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2
