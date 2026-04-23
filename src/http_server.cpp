@@ -26,6 +26,7 @@
 #include <luxon/http_parser.hpp>
 #include <luxon/ser_types.hpp>
 #include <luxon/enet_peer.hpp>
+#include <luxon/enet_metrics.hpp>
 #include <commoncpp/utils.hpp>
 #include <tracy/Tracy.hpp>
 
@@ -339,6 +340,13 @@ void HttpServer::handle_client_data(HttpClient& client) {
     try {
         std::string_view content, content_type = "text/html";
         if (req.method == "GET") {
+#ifdef LUXON_ENET_ENABLE_METRICS
+            if (req.path == "/metrics") {
+                send_text_response(client, 200, generate_prometheus_metrics(), "text/plain; version=0.0.4");
+                return;
+            }
+
+#endif
             if (req.path == "/") {
                 content = GET_RESOURCE(index_html);
             } else if (req.path == "/stats") {
@@ -350,7 +358,7 @@ void HttpServer::handle_client_data(HttpClient& client) {
         }
 
         if (content.empty()) {
-            send_response(client, 200, route_request(req.method, req.path));
+            send_json_response(client, 200, route_request(req.method, req.path));
         } else {
             const std::string response = std::format("HTTP/1.1 200 OK\r\n"
                                                      "Content-Type: {}\r\n"
@@ -367,16 +375,17 @@ void HttpServer::handle_client_data(HttpClient& client) {
     }
 }
 
-void HttpServer::send_response(HttpClient& client, int status, const json& body) {
-    const std::string body_str = body.dump(2);
+void HttpServer::send_text_response(HttpClient& client, int status, std::string_view body, std::string_view content_type) {
     const std::string response = std::format("HTTP/1.1 {} OK\r\n"
-                                             "Content-Type: application/json\r\n"
+                                             "Content-Type: {}\r\n"
                                              "Content-Length: {}\r\n"
                                              "Connection: close\r\n"
                                              "\r\n{}",
-                                             status, body_str.size(), body_str);
+                                             status, content_type, body.size(), body);
     queue_data(client, response, true);
 }
+
+void HttpServer::send_json_response(HttpClient& client, int status, const json& body) { send_text_response(client, status, body.dump(), "application/json"); }
 
 void HttpServer::send_error(HttpClient& client, int status, std::string_view message) {
     const json err_body = {{"error", message}};
@@ -422,6 +431,84 @@ Lobby *HttpServer::find_lobby(App *app, std::string_view name) {
 
 // Routing
 
+#ifdef LUXON_ENET_ENABLE_METRICS
+std::string HttpServer::generate_prometheus_metrics() {
+    ZoneScoped;
+    std::string out;
+    out.reserve(8192);
+
+    auto append_gauge = [&](const std::string& name, auto value) { out += std::format("# TYPE {} gauge\n{} {}\n", name, name, value); };
+
+    auto append_counter = [&](const std::string& name, auto value) { out += std::format("# TYPE {} counter\n{} {}\n", name, name, value); };
+
+    auto append_rate = [&](const std::string& prefix, const luxon::enet::RateCounter& rc) {
+        append_counter(prefix + "_total", rc.total);
+        append_gauge(prefix + "_per_second", rc.per_second);
+    };
+
+    auto append_flow = [&](const std::string& prefix, const luxon::enet::FlowCounter& fc) {
+        append_counter(prefix + "_added_total", fc.total_added);
+        append_counter(prefix + "_removed_total", fc.total_removed);
+        append_gauge(prefix + "_current", fc.current());
+        append_gauge(prefix + "_added_per_second", fc.added_per_sec);
+        append_gauge(prefix + "_removed_per_second", fc.removed_per_sec);
+    };
+
+    const auto& m = server_manager_.get_enet_metrics();
+
+    // Global
+    append_rate("luxon_global_bytes_in", m.global.bytes_in);
+    append_rate("luxon_global_bytes_out", m.global.bytes_out);
+    append_rate("luxon_global_messages_in", m.global.messages_in);
+    append_rate("luxon_global_messages_out", m.global.messages_out);
+    append_gauge("luxon_global_connections_active", m.global.connections_active.current);
+    append_flow("luxon_global_peers", m.global.peers);
+    append_rate("luxon_global_disconnected_peers", m.global.disconnected_peers);
+    append_rate("luxon_global_disconnected_peers_client", m.global.disconnected_peers_c);
+    append_rate("luxon_global_disconnected_peers_server", m.global.disconnected_peers_s);
+    append_rate("luxon_global_disconnected_peers_timeout", m.global.disconnected_peers_t);
+
+    // UDP
+    append_rate("luxon_udp_datagrams_in", m.udp.datagrams_in);
+    append_rate("luxon_udp_datagrams_out", m.udp.datagrams_out);
+
+    // ENet
+    append_rate("luxon_enet_datagram_validation_failures", m.enet.datagram_validation_failures);
+    append_rate("luxon_enet_commands_in", m.enet.commands_in);
+    append_rate("luxon_enet_commands_out", m.enet.commands_out);
+    append_rate("luxon_enet_commands_out_throttled", m.enet.commands_out_throttled);
+    append_rate("luxon_enet_reliable_commands_in", m.enet.reliable_commands_in);
+    append_rate("luxon_enet_reliable_commands_out", m.enet.reliable_commands_out);
+    append_rate("luxon_enet_reliable_commands_in_dropped", m.enet.reliable_commands_in_dropped);
+    append_rate("luxon_enet_reliable_commands_out_resent", m.enet.reliable_commands_out_resent);
+    append_rate("luxon_enet_unreliable_commands_in", m.enet.unreliable_commands_in);
+    append_rate("luxon_enet_unreliable_commands_out", m.enet.unreliable_commands_out);
+    append_rate("luxon_enet_unreliable_commands_in_dropped", m.enet.unreliable_commands_in_dropped);
+    append_rate("luxon_enet_acknowledgements_in", m.enet.acknowledgements_in);
+    append_rate("luxon_enet_acknowledgements_out", m.enet.acknowledgements_out);
+    append_rate("luxon_enet_pings_in", m.enet.pings_in);
+    append_rate("luxon_enet_pings_out", m.enet.pings_out);
+    append_rate("luxon_enet_timeout_disconnects", m.enet.timeout_disconnects);
+
+    // Server Performance Stats
+    auto append_server_metric = [&](const std::string& name, auto& metric_data, unsigned duration_ms) {
+        try {
+            append_gauge(name + "_min", metric_data.min(duration_ms));
+            append_gauge(name + "_avg", metric_data.avg(duration_ms));
+            append_gauge(name + "_max", metric_data.max(duration_ms));
+        } catch (...) {
+            // Silently skip if metric isn't populated
+        }
+    };
+
+    // 1-minute (60,000ms) rolling statistics
+    append_server_metric("luxon_server_busy_time_1m", server_manager_.busy_time, 60000);
+    append_server_metric("luxon_server_idle_time_1m", server_manager_.idle_time, 60000);
+
+    return out;
+}
+
+#endif
 json HttpServer::route_request(std::string_view method, std::string path) {
     ZoneScoped;
 

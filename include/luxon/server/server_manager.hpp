@@ -330,5 +330,12 @@ public:
             fres.push_back({port, &server});
         return fres;
     }
+#ifdef LUXON_ENET_ENABLE_METRICS
+
+    ///
+    /// \brief Gets all metrics exposed by ENet
+    ///
+    const enet::Metrics& get_enet_metrics() const { return enet_metrics_; }
+#endif
 };
 } // namespace server

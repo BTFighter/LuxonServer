@@ -70,9 +70,15 @@ private:
 
     // API handling
     void handle_client_data(HttpClient& client);
-    void send_response(HttpClient& client, int status, const nlohmann::json& body);
+    void send_text_response(HttpClient& client, int status, std::string_view body, std::string_view content_type);
+    void send_json_response(HttpClient& client, int status, const nlohmann::json& body);
     void send_error(HttpClient& client, int status, std::string_view message);
 
+#ifdef LUXON_ENET_ENABLE_METRICS
+    // Prometheus generator
+    std::string generate_prometheus_metrics();
+
+#endif
     // Routing
     nlohmann::json route_request(std::string_view method, std::string path);
 
