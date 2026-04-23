@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(cmake/CPM.cmake)
 
 option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
-option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of game plugins" OFF)
+option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
 option(LUXON_SERVER_HOOKPOINTS "Allows library user or plugins to hook into specific parts of Luxon Server" OFF)
 option(LUXON_USE_EMBED_RESOURCE "Use EmbedResource instead of incbin.h" OFF)

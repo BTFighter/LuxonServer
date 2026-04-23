@@ -51,7 +51,15 @@ cmake ..
 cmake --build .
 ```
 
----
+Possible compile time options:
+ - `LUXON_SERVER_ENABLE_WEBSERVER` (default: `ON`): Enable the built-in webserver including the web interface
+ - `LUXON_SERVER_ENABLE_PLUGINS` (default: `OFF`): Enables plugin system
+ - `LUXON_SERVER_POLL` (default: `OFF`): Polls sockets blindly and rapidly, less efficient and slower
+ - `LUXON_SERVER_HOOKPOINTS` (default: `OFF`): Useful when linking LuxonServer as a library, allows hooking into some parts of the server via `ServerManager::hookpoints` (see [hookpoints.hpp](https://github.com/niansa/LuxonServer/blob/master/include/luxon/server/hookpoints.hpp))
+ - `LUXON_USE_EMBED_RESOURCE` (defaukt: `OFF` except on Windows): Uses the [embedresource](https://github.com/ankurvdev/embedresource) library for binary embedding instead of inline assembly
+ - `LUXON_SERVER_TRACY` (default: `OFF`): Links and enables [Tracy](https://github.com/wolfpld/tracy) client
+ - `LUXON_ENET_ENABLE_METRICS` (default: `OFF`): Collects more metrics available as a Prometheus endpoint on webserver (`/metrics`), ready for use with provided [Grafana Dashboard](https://github.com/niansa/LuxonServer/blob/master/grafana-dashboard.json)
+ - `LUXON_USE_TOMCRYPT` (default: `OFF`): Use alternative encryption library with wider compatibility
 
 ### Configuration
 
