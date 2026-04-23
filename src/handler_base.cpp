@@ -97,7 +97,9 @@ void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
         } else {
             // We don't know what this is!
             peer_->log->warn("Invalid packet ({} bytes in length) received: {}", payload.size(), expected_message.error().message);
+#ifndef NDEBUG
             luxon::visualizer::helpers::print_hex_dump(payload, 2);
+#endif
         }
 
         return;
@@ -171,7 +173,9 @@ void HandlerBase::HandleHTTPRequest(HttpRequest&& request, const enet::EnetComma
     } else {
         // We don't know what this HTTP request is!
         peer_->log->warn("Invalid HTTP request received");
+#ifndef NDEBUG
         luxon::visualizer::print_http_message(request, 2);
+#endif
     }
 }
 
