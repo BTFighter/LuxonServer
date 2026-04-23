@@ -509,7 +509,7 @@ bool ServerManager::run_once() {
         }
 
         if (servers_to_process > 0)
-            log_->warn("Tick time budget exhausted! {} servers deferred to next frame.", servers_to_process);
+            log_->warn("Tick time budget exhausted! {} servers deferred to next tick.", servers_to_process);
 
         // Trigger updates
         if (slow_update) {
