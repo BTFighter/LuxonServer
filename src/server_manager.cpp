@@ -291,7 +291,7 @@ ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(c
     enable_ipv6_ = config.enable_ipv6;
     max_connections_ = config.max_connections;
     max_game_peers_ = NormalizeMaxGamePeers(config.max_game_peers);
-    tick_time_budget_ = NormalizeMaxGamePeers(config.tick_time_budget);
+    tick_time_budget_ = config.tick_time_budget;
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     http_config_ = std::move(config.http);
