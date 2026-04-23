@@ -441,17 +441,12 @@ std::string HttpServer::generate_prometheus_metrics() {
 
     auto append_counter = [&](const std::string& name, auto value) { out += std::format("# TYPE {} counter\n{} {}\n", name, name, value); };
 
-    auto append_rate = [&](const std::string& prefix, const luxon::enet::RateCounter& rc) {
-        append_counter(prefix + "_total", rc.total);
-        append_gauge(prefix + "_per_second", rc.per_second);
-    };
+    auto append_rate = [&](const std::string& prefix, const luxon::enet::RateCounter& rc) { append_counter(prefix + "_total", rc.total); };
 
     auto append_flow = [&](const std::string& prefix, const luxon::enet::FlowCounter& fc) {
         append_counter(prefix + "_added_total", fc.total_added);
         append_counter(prefix + "_removed_total", fc.total_removed);
         append_gauge(prefix + "_current", fc.current());
-        append_gauge(prefix + "_added_per_second", fc.added_per_sec);
-        append_gauge(prefix + "_removed_per_second", fc.removed_per_sec);
     };
 
     const auto& m = server_manager_.get_enet_metrics();
@@ -488,7 +483,6 @@ std::string HttpServer::generate_prometheus_metrics() {
     append_rate("luxon_enet_acknowledgements_out", m.enet.acknowledgements_out);
     append_rate("luxon_enet_pings_in", m.enet.pings_in);
     append_rate("luxon_enet_pings_out", m.enet.pings_out);
-    append_rate("luxon_enet_timeout_disconnects", m.enet.timeout_disconnects);
 
     // Server Performance Stats
     auto append_server_metric = [&](const std::string& name, auto& metric_data, unsigned duration_ms) {
