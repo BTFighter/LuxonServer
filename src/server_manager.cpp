@@ -471,15 +471,11 @@ bool ServerManager::run_once() {
 #endif
 
         // Dispatch and handle incoming application messages
-#ifndef LUXON_SERVER_POLL
-        const auto& readable_socks = sock_selector_.get_readable_socks();
-#endif
-
         uint32_t remaining_timeout = tick_time_budget_;
         size_t servers_to_process = servers_.size();
 
         {
-            ZoneScopedN("service_servers");
+            ZoneScopedN("service_peers");
 
             // Round-robin over servers to prevent starvation
             while (servers_to_process > 0 && remaining_timeout > 0) {
@@ -490,11 +486,6 @@ bool ServerManager::run_once() {
                 auto& [port, server] = *next_server_it_;
 
                 try {
-#ifndef LUXON_SERVER_POLL
-                    if (std::ranges::contains(readable_socks, server.native_handle()))
-#endif
-                        server.service_self();
-
                     // Service peers using whatever remains of global budget
                     if (!server.service_peers(remaining_timeout))
                         log_->warn("Queueing UDP datagrams on port {}!", port);
@@ -513,7 +504,7 @@ bool ServerManager::run_once() {
 
         // Trigger updates
         if (slow_update) {
-            ZoneScopedN("service_server_slow_updates");
+            ZoneScopedN("service_slow_updates");
 #ifdef LUXON_ENET_ENABLE_METRICS
             // Tick enet metrics
             const auto enet_metrics_last_tick_ms = enet_metrics_last_tick_.get();
@@ -541,11 +532,7 @@ bool ServerManager::run_once() {
 
         // Update HTTP server
         if (http_server_)
-#ifndef LUXON_SERVER_POLL
-            http_server_->service(readable_socks);
-#else
-            http_server_->service();
-#endif
+            http_server_->service_now();
 
         // End busy performance timer
         const auto end_time = std::chrono::steady_clock::now();
@@ -570,7 +557,8 @@ void ServerManager::setup_http_server() {
     log_->info("Initializing HTTP Server on port {}", http_config_->port);
     http_server_.emplace(*this);
 #ifndef LUXON_SERVER_POLL
-    http_server_->on_create_fd = std::bind(&SockSelector::add_read_fd, &sock_selector_, std::placeholders::_1);
+    http_server_->on_create_fd =
+        std::bind(&SockSelector::add_read_fd, &sock_selector_, std::placeholders::_1, [this](int fd) { http_server_->service_later(fd); });
     http_server_->on_delete_fd = std::bind(&SockSelector::remove_read_fd, &sock_selector_, std::placeholders::_1);
 #endif
     http_server_->bind(http_config_->address, http_config_->port);
@@ -727,7 +715,10 @@ void ServerManager::setup() {
 
         // Add server to sock selector
 #ifndef LUXON_SERVER_POLL
-        if (!sock_selector_.add_read_fd(server.native_handle()))
+        if (!sock_selector_.add_read_fd(server.native_handle(), [&server](int fd) {
+                ZoneScopedN("service_server");
+                server.service_self();
+            }))
             log_->error("Failed to add new server to sock selector!", ServerTypeToString(config.type), config.port);
 #endif
     }

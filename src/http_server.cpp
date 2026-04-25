@@ -234,17 +234,17 @@ bool HttpServer::bind(const std::string& address, uint16_t port) {
 }
 
 #ifndef LUXON_SERVER_POLL
-void HttpServer::service(const std::vector<socket_t>& fds) {
-#else
-void HttpServer::service() {
+void HttpServer::service_later(int fd) { servicable_fds_.push_back(fd); }
 #endif
+
+void HttpServer::service_now() {
     ZoneScoped;
 
     if (server_fd_ == -1)
         return;
 
 #ifndef LUXON_SERVER_POLL
-    if (std::ranges::contains(fds, server_fd_))
+    if (std::ranges::contains(servicable_fds_, server_fd_))
 #endif
     {
         sockaddr_in cli_addr;
@@ -286,7 +286,7 @@ void HttpServer::service() {
 
         // Handle Incoming Data
 #ifndef LUXON_SERVER_POLL
-        if (std::ranges::contains(fds, client.fd))
+        if (std::ranges::contains(servicable_fds_, client.fd))
 #endif
         {
             char buffer[4096];
@@ -318,6 +318,10 @@ void HttpServer::service() {
         }
         return false;
     });
+
+#ifndef LUXON_SERVER_POLL
+    servicable_fds_.clear();
+#endif
 }
 
 void HttpServer::queue_data(HttpClient& client, std::string_view data, bool close_connection) {
