@@ -111,6 +111,10 @@ if (MSVC)
     target_compile_definitions(luxon_server_lib PRIVATE NOMINMAX)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL Windows)
+    target_sources(luxon_server_lib PRIVATE include/luxon/server/wepoll.h src/wepoll.c)
+endif()
+
 if (LUXON_USE_EMBED_RESOURCE)
     find_package(EmbedResource)
     if (NOT EmbedResource_FOUND)

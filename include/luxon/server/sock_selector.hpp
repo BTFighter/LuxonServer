@@ -9,8 +9,7 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #elif defined(_WIN32)
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include "wepoll.h"
 #else
 #include <sys/select.h>
 #endif
@@ -20,15 +19,17 @@ class SockSelector {
 public:
 #ifdef _WIN32
     using socket_t = SOCKET;
+    using epoll_t = HANDLE;
 #else
     using socket_t = int;
+    using epoll_t = int;
 #endif
 
 private:
     std::vector<socket_t> readable_socks;
 
-#ifdef __linux__
-    int epoll_fd;
+#if defined(__linux__) || defined(_WIN32)
+    epoll_t epoll_fd;
     std::vector<struct epoll_event> events;
 #else
     fd_set read_fd_set;

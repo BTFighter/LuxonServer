@@ -19,7 +19,7 @@ timeval ms_to_timeval(unsigned long long ms) {
 } // namespace
 
 SockSelector::SockSelector() {
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32)
     epoll_fd = epoll_create1(0);
     events.resize(128);
 #else
@@ -34,13 +34,18 @@ SockSelector::~SockSelector() {
 #ifdef __linux__
     if (epoll_fd >= 0)
         close(epoll_fd);
+#else
+#ifdef _WIN32
+    if (epoll_fd)
+        epoll_close(epoll_fd);
+#endif
 #endif
 }
 
 bool SockSelector::run(unsigned int timeout_ms) {
     readable_socks.clear();
 
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32)
     int t = (timeout_ms == 0) ? -1 : static_cast<int>(timeout_ms);
     int nfds = epoll_wait(epoll_fd, events.data(), events.size(), t);
 
@@ -87,27 +92,21 @@ bool SockSelector::run(unsigned int timeout_ms) {
 bool SockSelector::add_read_fd(socket_t fd) {
     ZoneScoped;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32)
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
     ev.data.fd = fd;
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
         return false;
 #else
-#ifdef _WIN32
-    if (read_fds.size() >= FD_SETSIZE)
-        return false; // Prevent Windows overflow
-#else
     if (fd >= FD_SETSIZE)
         return false; // Prevent POSIX stack corruption
-#endif
 
     FD_SET(fd, &read_fd_set);
     read_fds.push_back(fd);
-#ifndef _WIN32
+
     if (fd > highest_fd)
         highest_fd = fd;
-#endif
 #endif
 
     return true;
@@ -116,7 +115,7 @@ bool SockSelector::add_read_fd(socket_t fd) {
 void SockSelector::remove_read_fd(socket_t fd) {
     ZoneScoped;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32)
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
 #else
     FD_CLR(fd, &read_fd_set);
@@ -129,14 +128,13 @@ void SockSelector::remove_read_fd(socket_t fd) {
             break;
         }
     }
-#ifndef _WIN32
+
     if (fd == highest_fd) {
         highest_fd = 0;
         for (auto s : read_fds)
             if (s > highest_fd)
                 highest_fd = s;
     }
-#endif
 #endif
 }
 } // namespace server
