@@ -499,10 +499,6 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
             bool broadcast = params->get<DictKeyCodes::RoutingAndEvents::Broadcast>();
             auto actor_id = params->get<DictKeyCodes::GameAndActor::ActorNo>();
 
-            // Can only set non-self props as master
-            if (actor_id != game_peer_->actor_id && !ensure_is_master())
-                return;
-
             const auto& props = params->get<DictKeyCodes::Properties::Properties>();
             const auto& props_expected = params->get<DictKeyCodes::Properties::ExpectedValues>();
 
