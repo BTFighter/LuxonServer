@@ -97,6 +97,15 @@ struct ServerManagerConfig {
     ///
     uint32_t tick_time_budget = 2000;
 
+    ///
+    /// \brief Authentication mode
+    /// 0 = Weak, 1 = Anonymous, 2 = Strict
+    ///  - Weak means any authentication type will always succeed
+    ///  - Anonymous means authentication will be checked for non-zero authenticatio type
+    ///  - Strict means anonymous authentication will always fail
+    ///
+    unsigned authentication_mode = 0;
+
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     std::optional<HttpServerConfig> http;
 #endif
@@ -196,6 +205,7 @@ private:
     unsigned max_connections_ = 0;
     uint8_t max_game_peers_ = 0;
     uint32_t tick_time_budget_ = 2000;
+    unsigned authentication_mode_ = 0;
 
     void setup();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
@@ -346,5 +356,10 @@ public:
     ///
     const enet::Metrics& get_enet_metrics() const { return enet_metrics_; }
 #endif
+
+    ///
+    /// \brief Gets all metrics exposed by ENet
+    ///
+    unsigned get_auth_mode() const { return authentication_mode_; }
 };
 } // namespace server

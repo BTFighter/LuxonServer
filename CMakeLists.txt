@@ -150,6 +150,7 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
     target_sources(luxon_server_lib PRIVATE
         include/luxon/server/game_plugin_base.hpp src/game_plugin_base.cpp
         include/luxon/server/game_plugin_registry.hpp src/game_plugin_registry.cpp
+        include/luxon/server/auth_plugin_registry.hpp src/auth_plugin_registry.cpp
         include/luxon/server/sidethread.hpp
     )
     target_link_libraries(luxon_server_lib PUBLIC minicoropp)
@@ -185,9 +186,9 @@ endif()
 if (LUXON_SERVER_ENABLE_PLUGINS)
     # Create target for user plugins to link with
     add_library(luxon_server_api INTERFACE)
-    target_link_libraries(luxon_server_api INTERFACE commoncpp)
+    target_link_libraries(luxon_server_api INTERFACE luxon_server_lib luxon_enet luxon_ser commoncpp)
     target_include_directories(luxon_server_api INTERFACE include)
-    get_target_property(LUXON_SERVER_DEFS luxon_server COMPILE_DEFINITIONS)
+    get_target_property(LUXON_SERVER_DEFS luxon_server_lib COMPILE_DEFINITIONS)
     target_compile_definitions(luxon_server_api INTERFACE ${LUXON_SERVER_DEFS})
 
     # List of plugin projects in cache for user to populate
@@ -197,7 +198,7 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
     function(luxon_register_plugin plugin_target)
         message(STATUS "[Luxon] Registering plugin target: ${plugin_target}")
         set_property(GLOBAL APPEND PROPERTY LUXON_REGISTERED_PLUGINS "${plugin_target}")
-        target_link_libraries(${plugin_target} PUBLIC luxon_server_api luxon_enet luxon_ser)
+        target_link_libraries(${plugin_target} PUBLIC luxon_server_api)
     endfunction()
 
     # Load user specified list of plugin projects
@@ -221,8 +222,8 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
     get_property(REGISTERED_PLUGINS GLOBAL PROPERTY LUXON_REGISTERED_PLUGINS)
     if (REGISTERED_PLUGINS)
         message(STATUS "[Luxon] Linking plugins to server: ${REGISTERED_PLUGINS}")
-        target_link_libraries(luxon_server_lib "$<LINK_LIBRARY:WHOLE_ARCHIVE,${REGISTERED_PLUGINS}>")
+        target_link_libraries(luxon_server "$<LINK_LIBRARY:WHOLE_ARCHIVE,${REGISTERED_PLUGINS}>")
     else()
-        message(FATAL_ERROR "[Luxon] No plugins were registered, but LUXON_SERVER_ENABLE_PLUGINS is ON")
+        message(WARNING "[Luxon] No plugins were registered, but LUXON_SERVER_ENABLE_PLUGINS is ON")
     endif()
 endif()

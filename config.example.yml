@@ -47,6 +47,13 @@ MaxConnections: 20
 MaxGamePeers: 0 # No explicit limit
 TickTimeBudget: 2000 # In microseconds, more clients -> lower value; higher value -> lower latency
 
+# Authentication mode
+# 0 = Weak, 1 = Anonymous, 2 = Strict
+#  - Weak means any authentication type will always succeed
+#  - Anonymous means authentication will be checked for non-zero authenticatio type
+#  - Strict means anonymous authentication will always fail
+AuthMode: 0
+
 
 # Web interface and API
 

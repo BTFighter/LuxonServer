@@ -269,6 +269,9 @@ ServerManagerConfig ServerManager::parse_config(const std::string& config_conten
         } else if (key == "TickTimeBudget") {
             if (!section.IsNone())
                 config.tick_time_budget = section.As<uint32_t>();
+        } else if (key == "AuthMode") {
+            if (!section.IsNone())
+                config.authentication_mode = std::clamp<unsigned>(section.As<unsigned>(), 0, 2);
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         } else if (key == "HTTP") {
             ParseHttpSection(config, section);
@@ -292,6 +295,7 @@ ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(c
     max_connections_ = config.max_connections;
     max_game_peers_ = NormalizeMaxGamePeers(config.max_game_peers);
     tick_time_budget_ = config.tick_time_budget;
+    authentication_mode_ = config.authentication_mode;
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     http_config_ = std::move(config.http);
@@ -659,7 +663,7 @@ void ServerManager::setup() {
                 }
 #endif
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
-                if (!(new minicoro::Coroutine([handler, cmd, this](minicoro::Coroutine& coro) {
+                if (!(new minicoro::Coroutine([handler, cmd = std::move(cmd), this](minicoro::Coroutine& coro) mutable {
                          // Make coroutine own itself
                          auto owned_coro =
                              std::unique_ptr<minicoro::Coroutine, std::function<void(minicoro::Coroutine *)>>(&coro, [this](minicoro::Coroutine *coro) {
