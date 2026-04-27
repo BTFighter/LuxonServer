@@ -21,7 +21,7 @@ struct Hookpoints {
     std::function<bool(MasterServerHandler&, const std::string&, bool)> MasterServer_HandleOperationRequest_JoinGame;
     std::function<bool(MasterServerHandler&, const std::string&)> MasterServer_HandleOperationRequest_CreateGame;
     std::function<bool(HandlerBase&, ser::Message&, enet::EnetCommandHeader&)> HandlerBase_HandleENetCommand_OnMessage;
-    std::function<bool(App&, AppSettings&)> App_load_app_settings;
+    std::function<bool(App&, AppSettings&, bool& success)> App_load_app_settings;
 };
 } // namespace server
 

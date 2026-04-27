@@ -30,7 +30,8 @@ bool App::load_app_settings() {
     // Get settings
     const bool fres = [this]() {
         // Try hookpoint
-        LUXON_SERVER_HOOKPOINT_CSM(server_manager, App_load_app_settings, settings_) true;
+        bool hookpoint_success = true;
+        LUXON_SERVER_HOOKPOINT_CSM(server_manager, App_load_app_settings, settings_, hookpoint_success) hookpoint_success;
 
         // Try database
 #ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
