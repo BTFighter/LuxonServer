@@ -28,15 +28,6 @@ KEABE: Kill 'Em All - Bunny Edition
 Knight Squad 2
 + Works flawlessly
 
-Nickelodeon All Stars Brawl
-- Can create lobby but clients cannot see public lobbies.
-- Can join lobbies by being invited, but cannot join games.
-- Random matchmaking doesn't work.
-
-Nickelodeon All Stars Brawl 2
-- Can create lobby and clients can join but gets stuck on loading.
-- Random matchmaking works but gets stuck on loading.
-
 Roots of Pacha
 + Works perfectly
 
@@ -70,41 +61,12 @@ Untitled Ghost Game
 
 
 Won't fix:
-Among Us 3D
-- Uses unimplemented server plugins
 
 Clone Drone in the Danger Zone
 - Uses Photon Bolt
 
-Crime Simulator
-- Uses unimplemented server plugins
-
-GUNTOUCHABLES
-- Uses unimplemented server plugins
-
-LIZARDS MUST DIE 2
-- Uses unimplemented server plugins
-
-Long Drive North
-- Uses unimplemented server plugins
-
-New Super Mario Bros VS
-- Uses unimplemented server plugins
-
-PICO PARK 2
-- Uses unimplemented server plugins
-
-Pizza Slice
-- Uses unimplemented server plugins
-
-Roadside Research
-- Uses unimplemented server plugins
-
 Stranded Deep
 - Uses Photon Bolt
-
-Stumble Guys
-- Uses unimplemented server plugins
 
 VRChat
 - Stay away, developers have pursued legal action against third party hosted multiplayer before
