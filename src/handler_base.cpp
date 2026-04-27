@@ -4,6 +4,8 @@
 #include "handler_base.hpp"
 #include "global.hpp"
 #include "peer_persistence.hpp"
+#include "hookpoints.hpp"
+#include "server_manager.hpp"
 
 #include <string_view>
 #include <format>
@@ -95,7 +97,9 @@ void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
         } else {
             // We don't know what this is!
             peer_->log->warn("Invalid packet ({} bytes in length) received: {}", payload.size(), expected_message.error().message);
+#ifndef NDEBUG
             luxon::visualizer::helpers::print_hex_dump(payload, 2);
+#endif
         }
 
         return;
@@ -103,6 +107,8 @@ void HandlerBase::HandleENetCommand(enet::EnetCommand&& cmd) {
 
     ser::Message& message = *expected_message;
     cmd.reset_payload();
+
+    LUXON_SERVER_HOOKPOINT(HandlerBase_HandleENetCommand_OnMessage, message, cmd.header);
 
     if (auto *req = std::get_if<ser::InitMessage>(&message))
         return HandleInitRequest(std::move(*req), cmd.header);
@@ -167,7 +173,9 @@ void HandlerBase::HandleHTTPRequest(HttpRequest&& request, const enet::EnetComma
     } else {
         // We don't know what this HTTP request is!
         peer_->log->warn("Invalid HTTP request received");
+#ifndef NDEBUG
         luxon::visualizer::print_http_message(request, 2);
+#endif
     }
 }
 

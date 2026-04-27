@@ -30,7 +30,6 @@ public:
     using socket_t = int;
 #endif
 
-public:
 #ifndef LUXON_SERVER_POLL
     std::function<void(socket_t)> on_create_fd;
     std::function<void(socket_t)> on_delete_fd;
@@ -42,12 +41,10 @@ public:
     // Bind to port and start listening (non-blocking)
     bool bind(const std::string& address, uint16_t port);
 
-    // Updates given clients
 #ifndef LUXON_SERVER_POLL
-    void service(const std::vector<socket_t>& fds);
-#else
-    void service();
+    void service_later(int fd);
 #endif
+    void service_now();
 
 private:
     struct HttpClient {
@@ -64,15 +61,25 @@ private:
     socket_t server_fd_ = -1;
     std::vector<HttpClient> clients_;
 
+#ifndef LUXON_SERVER_POLL
+    std::vector<int> servicable_fds_;
+#endif
+
     std::string index_html;
 
     void queue_data(HttpClient& client, std::string_view data, bool close_connection);
 
     // API handling
     void handle_client_data(HttpClient& client);
-    void send_response(HttpClient& client, int status, const nlohmann::json& body);
+    void send_text_response(HttpClient& client, int status, std::string_view body, std::string_view content_type);
+    void send_json_response(HttpClient& client, int status, const nlohmann::json& body);
     void send_error(HttpClient& client, int status, std::string_view message);
 
+#ifdef LUXON_ENET_ENABLE_METRICS
+    // Prometheus generator
+    std::string generate_prometheus_metrics();
+
+#endif
     // Routing
     nlohmann::json route_request(std::string_view method, std::string path);
 

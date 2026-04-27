@@ -303,7 +303,7 @@ std::pair<int16_t, std::string_view> Game::validate_join(const std::string& user
             return {ErrorCodes::Matchmaking::GameFull, "Game is full"};
 
         // Return error if limit of peers per game is reached
-        if (const auto max_game_peers = lobby->app->server_manager.get_max_game_peers())
+        if (const auto max_game_peers = lobby->app->get_settings().max_peers_per_game)
             if (final_peer_count > max_game_peers)
                 return {ErrorCodes::Matchmaking::GameFull, "Game is full"};
 

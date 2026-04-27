@@ -132,7 +132,7 @@ public:
         soc_buffer_ = (u32 *)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
         auto ret = socInit(soc_buffer_, SOC_BUFFERSIZE);
         if (ret != 0) {
-            throw std::runtime_error("socInit() = " + std::to_string((unsigned int)ret));
+            throw std::runtime_error("socInit() = " + std::to_string((unsigned)ret));
         }
     }
     Platform(Platform&) = delete;

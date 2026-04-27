@@ -8,6 +8,10 @@
 #include "handler_base.hpp"
 #include "string_hash.hpp"
 #include "logger.hpp"
+#include "hookpoints.hpp"
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+#include "settings_manager.hpp"
+#endif
 #ifndef LUXON_SERVER_POLL
 #include "sock_selector.hpp"
 #endif
@@ -16,9 +20,6 @@
 #endif
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
 #include "sidethread.hpp"
-#endif
-#ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
-#include "hookpoints.hpp"
 #endif
 
 #include <string>
@@ -84,12 +85,28 @@ struct HttpServerConfig {
 struct ServerManagerConfig {
     std::vector<ServerConfig> servers;
     std::vector<ServerEndpoint> endpoints;
+    bool enable_ipv6 = true;
     unsigned max_connections = 0;
     ///
-    /// \brief Maximum peers per game.
+    /// \brief Maximum peers per game
     /// Values >= 255 are normalized to the legacy internal value 0 when applied.
     ///
     unsigned max_game_peers = 0;
+
+    ///
+    /// \brief Tick time budget
+    /// Maximum amount of time run_once is allowed to take to service servers/peers.
+    /// Lower value means more clients can safely be serviced at once, but processing latency will increase faster.
+    ///
+    uint32_t tick_time_budget = 2000;
+
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+    ///
+    /// \brief Settings database file path
+    /// Settings database will be initialized/read from this path.
+    ///
+    std::string settings_database_path;
+#endif
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     std::optional<HttpServerConfig> http;
@@ -150,6 +167,9 @@ public:
     std::unordered_map<std::pair<std::string, std::string>, std::weak_ptr<App>, StringPairHasher> apps;
     std::vector<std::unique_ptr<PeerPersistent>> peer_persistent_data;
     std::vector<ServerEndpoint> endpoints;
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+    std::optional<SettingsManager> settings_manager;
+#endif
 
 #ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
     Hookpoints hookpoints;
@@ -163,6 +183,7 @@ private:
     std::shared_ptr<logger> log_;
     std::vector<ServerConfig> configs_;
     std::unordered_map<uint16_t, enet::EnetServer> servers_;
+    decltype(servers_)::iterator next_server_it_;
     std::list<HandlerPtr<HandlerBase>> connections_;
     std::priority_queue<ScheduledTask, std::vector<ScheduledTask>, std::greater<ScheduledTask>> scheduled_tasks_;
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
@@ -185,8 +206,10 @@ private:
 
     bool running_ = false;
 
+    bool enable_ipv6_ = true;
     unsigned max_connections_ = 0;
     uint8_t max_game_peers_ = 0;
+    uint32_t tick_time_budget_ = 2000;
 
     void setup();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
@@ -194,6 +217,7 @@ private:
 #endif
 
     void run_scheduled_tasks();
+    void stun_keepalive(enet::EnetServer& server, uint16_t port);
 
 public:
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
@@ -329,5 +353,12 @@ public:
             fres.push_back({port, &server});
         return fres;
     }
+#ifdef LUXON_ENET_ENABLE_METRICS
+
+    ///
+    /// \brief Gets all metrics exposed by ENet
+    ///
+    const enet::Metrics& get_enet_metrics() const { return enet_metrics_; }
+#endif
 };
 } // namespace server

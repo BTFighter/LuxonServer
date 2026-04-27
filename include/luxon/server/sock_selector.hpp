@@ -3,14 +3,16 @@
 
 #pragma once
 
+#include "offset_map.hpp"
+
 #include <vector>
+#include <functional>
 
 #if defined(__linux__)
 #include <unistd.h>
 #include <sys/epoll.h>
 #elif defined(_WIN32)
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include "wepoll.h"
 #else
 #include <sys/select.h>
 #endif
@@ -20,15 +22,19 @@ class SockSelector {
 public:
 #ifdef _WIN32
     using socket_t = SOCKET;
+    using epoll_t = HANDLE;
+    template <typename V> using callback_map_t = std::unordered_map<SOCKET, V>;
 #else
     using socket_t = int;
+    using epoll_t = int;
+    template <typename V> using callback_map_t = offset_map<unsigned, V>;
 #endif
 
-private:
-    std::vector<socket_t> readable_socks;
+    using callback_t = std::function<void(socket_t)>;
 
-#ifdef __linux__
-    int epoll_fd;
+private:
+#if defined(__linux__) || defined(_WIN32)
+    epoll_t epoll_fd;
     std::vector<struct epoll_event> events;
 #else
     fd_set read_fd_set;
@@ -40,6 +46,8 @@ private:
 #endif
 #endif
 
+    callback_map_t<callback_t> callbacks;
+
 public:
     SockSelector();
     ~SockSelector();
@@ -47,9 +55,7 @@ public:
     // Zero-timeout means potentially forever-blocking
     bool run(unsigned timeout_ms = 0);
 
-    bool add_read_fd(socket_t fd);
+    bool add_read_fd(socket_t fd, callback_t&& callback);
     void remove_read_fd(socket_t fd);
-
-    const std::vector<socket_t>& get_readable_socks() { return readable_socks; }
 };
 } // namespace server

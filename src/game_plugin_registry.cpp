@@ -14,11 +14,14 @@ std::unordered_map<std::string, PluginFactory> *plugins{};
 
 bool register_(const std::string& name, PluginFactory&& plugin_factory) {
     if (!plugins)
-        plugins = new typeof(*plugins);
+        plugins = new std::remove_reference_t<decltype(*plugins)>();
     return plugins->emplace(name, std::move(plugin_factory)).second;
 }
 
 std::unique_ptr<PluginBase> instantiate(Game *game, const std::string& name) {
+    if (!plugins)
+        return nullptr;
+
     auto res = plugins->find(name);
     if (res == plugins->end())
         return nullptr;

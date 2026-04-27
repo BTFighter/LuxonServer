@@ -22,8 +22,26 @@ struct LobbyIdHash {
     size_t operator()(const LobbyId& k) const noexcept;
 };
 
+struct AppSettings {
+    // Defaults are most relaxed for maximum compatibility
+
+    enum AuthMode : unsigned { Weak, Anonymous, Strict };
+    enum CustomAnonymousUIDMode : unsigned { Allow, AllowWithPrefix, ForceRandom };
+
+    std::string appid;
+    unsigned auth_mode = Weak;
+    bool allow_find_friends = true;
+    unsigned custom_anonymous_uid_mode = Allow;
+    std::string anonymous_uid_prefix;
+    unsigned max_peers = 0, max_peers_per_game = 0, max_game_count = 0;
+
+    void enforce_global_config(ServerManager&);
+};
+
 class App {
     App(ServerManager& server_manager, std::string_view id, std::string_view version);
+
+    AppSettings settings_;
 
     std::unordered_map<LobbyId, std::weak_ptr<Lobby>, LobbyIdHash> lobbies_;
 
@@ -31,8 +49,14 @@ public:
     ServerManager& server_manager;
     const std::string_view id, version;
 
+    bool load_app_settings();
+
+    size_t get_game_count() const;
+    size_t get_peer_count() const;
+
+    const AppSettings& get_settings() const { return settings_; }
     std::shared_ptr<Lobby> get_lobby(LobbyId id = {});
-    const std::unordered_map<LobbyId, std::weak_ptr<Lobby>, LobbyIdHash>& get_lobbies() { return lobbies_; }
+    const std::unordered_map<LobbyId, std::weak_ptr<Lobby>, LobbyIdHash>& get_lobbies() const { return lobbies_; }
 
     std::shared_ptr<App> get_shared() { return get(server_manager, std::string(id), std::string(version)); }
 

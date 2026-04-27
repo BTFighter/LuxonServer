@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(cmake/CPM.cmake)
 
 option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
-option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of game plugins" OFF)
+option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
 option(LUXON_SERVER_HOOKPOINTS "Allows library user or plugins to hook into specific parts of Luxon Server" OFF)
 option(LUXON_USE_EMBED_RESOURCE "Use EmbedResource instead of incbin.h" OFF)
@@ -37,7 +37,7 @@ if (MSVC)
     set(LUXON_USE_EMBED_RESOURCE ON)
 endif()
 
-# Linux/Windows get to use mbedtls and spdlog
+# Linux/Windows get to use mbedtls, spdlog and setting storage database support
 if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
     # Generic configuration
     add_subdirectory(Luxon)
@@ -45,6 +45,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
     CPMAddPackage("gl:niansa/sanmake@1.0")
 
     option(LUXON_SERVER_USE_SPDLOG "Use spdlog for Luxon server" ON)
+    option(LUXON_SERVER_ENABLE_SETTINGS_DATABASE "Build Luxon Server with settings storage database support enabled" ON)
 else()
     # Compatible configuration
     set(LUXON_USE_TOMCRYPT ON CACHE BOOL "Force use of libtomcrypt" FORCE)
@@ -53,6 +54,7 @@ else()
     add_library(sanmake INTERFACE)
 
     set(LUXON_SERVER_USE_SPDLOG OFF)
+    set(LUXON_SERVER_ENABLE_SETTINGS_DATABASE OFF)
 endif()
 
 # Include spdlog
@@ -86,18 +88,23 @@ add_library(luxon_server_lib
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp
     include/luxon/server/lobby.hpp    include/luxon/server/string_hash.hpp  src/handler_base.cpp src/json.hpp      src/peer_persistence.cpp
     include/luxon/server/hookpoints.hpp
-    include/luxon/server/data_model.hpp src/sqlite3.c src/sqlite3.h
+    include/luxon/server/data_model.hpp
+    include/luxon/server/sqlite3.h src/sqlite3.c
     src/lobby_vt.hpp src/lobby_vt.cpp
 
     tracy/public/tracy/Tracy.hpp
     src/tracy_mem.cpp
 )
 target_link_libraries(luxon_server_lib
-    PRIVATE magic_enum luxon_visualizer luxon_http_parser
+    PRIVATE magic_enum luxon_http_parser
     PUBLIC sanmake commoncpp luxon_enet luxon_ser
 )
 target_include_directories(luxon_server_lib PRIVATE include/luxon/server tracy/public PUBLIC include)
 target_compile_definitions(luxon_server_lib PRIVATE SQLITE_CUSTOM_INCLUDE=sqlite3-config.h)
+
+if (CMAKE_BUILD_TYPE STREQUAL Debug)
+    target_link_libraries(luxon_server_lib PRIVATE luxon_visualizer)
+endif()
 
 add_executable(luxon_server src/main.cpp)
 target_link_libraries(luxon_server luxon_server_lib)
@@ -105,6 +112,10 @@ target_link_libraries(luxon_server luxon_server_lib)
 # Windows specific fixes
 if (MSVC)
     target_compile_definitions(luxon_server_lib PRIVATE NOMINMAX)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL Windows)
+    target_sources(luxon_server_lib PRIVATE include/luxon/server/wepoll.h src/wepoll.c)
 endif()
 
 if (LUXON_USE_EMBED_RESOURCE)
@@ -142,6 +153,7 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
     target_sources(luxon_server_lib PRIVATE
         include/luxon/server/game_plugin_base.hpp src/game_plugin_base.cpp
         include/luxon/server/game_plugin_registry.hpp src/game_plugin_registry.cpp
+        include/luxon/server/auth_plugin_registry.hpp src/auth_plugin_registry.cpp
         include/luxon/server/sidethread.hpp
     )
     target_link_libraries(luxon_server_lib PUBLIC minicoropp)
@@ -151,6 +163,14 @@ endif()
 if (LUXON_SERVER_USE_SPDLOG)
     target_link_libraries(luxon_server_lib PUBLIC spdlog::spdlog)
     target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_USE_SPDLOG)
+endif()
+
+if (LUXON_SERVER_ENABLE_SETTINGS_DATABASE)
+    target_sources(luxon_server_lib PRIVATE
+        include/luxon/server/sqlite3pp.hpp src/sqlite3pp.cpp
+        include/luxon/server/settings_manager.hpp src/settings_manager.cpp
+    )
+    target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_ENABLE_SETTINGS_DATABASE)
 endif()
 
 if (LUXON_SERVER_TRACY)
@@ -177,9 +197,9 @@ endif()
 if (LUXON_SERVER_ENABLE_PLUGINS)
     # Create target for user plugins to link with
     add_library(luxon_server_api INTERFACE)
-    target_link_libraries(luxon_server_api INTERFACE commoncpp)
+    target_link_libraries(luxon_server_api INTERFACE luxon_server_lib luxon_enet luxon_ser commoncpp)
     target_include_directories(luxon_server_api INTERFACE include)
-    get_target_property(LUXON_SERVER_DEFS luxon_server COMPILE_DEFINITIONS)
+    get_target_property(LUXON_SERVER_DEFS luxon_server_lib COMPILE_DEFINITIONS)
     target_compile_definitions(luxon_server_api INTERFACE ${LUXON_SERVER_DEFS})
 
     # List of plugin projects in cache for user to populate
@@ -189,7 +209,7 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
     function(luxon_register_plugin plugin_target)
         message(STATUS "[Luxon] Registering plugin target: ${plugin_target}")
         set_property(GLOBAL APPEND PROPERTY LUXON_REGISTERED_PLUGINS "${plugin_target}")
-        target_link_libraries(${plugin_target} PUBLIC luxon_server_api luxon_enet luxon_ser)
+        target_link_libraries(${plugin_target} PUBLIC luxon_server_api)
     endfunction()
 
     # Load user specified list of plugin projects
@@ -213,8 +233,8 @@ if (LUXON_SERVER_ENABLE_PLUGINS)
     get_property(REGISTERED_PLUGINS GLOBAL PROPERTY LUXON_REGISTERED_PLUGINS)
     if (REGISTERED_PLUGINS)
         message(STATUS "[Luxon] Linking plugins to server: ${REGISTERED_PLUGINS}")
-        target_link_libraries(luxon_server_lib "$<LINK_LIBRARY:WHOLE_ARCHIVE,${REGISTERED_PLUGINS}>")
+        target_link_libraries(luxon_server "$<LINK_LIBRARY:WHOLE_ARCHIVE,${REGISTERED_PLUGINS}>")
     else()
-        message(FATAL_ERROR "[Luxon] No plugins were registered, but LUXON_SERVER_ENABLE_PLUGINS is ON")
+        message(WARNING "[Luxon] No plugins were registered, but LUXON_SERVER_ENABLE_PLUGINS is ON")
     endif()
 endif()

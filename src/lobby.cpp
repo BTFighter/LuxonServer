@@ -57,12 +57,18 @@ Lobby::Lobby(std::shared_ptr<App> app, std::string name, uint8_t type) : app(std
 
 Lobby::~Lobby() noexcept { sqlite3_close_v2(sql); }
 
-std::shared_ptr<Game> Lobby::create_game(std::string id, bool or_get) {
+std::expected<std::shared_ptr<Game>, ser::OperationResponseMessage> Lobby::create_game(std::string id, bool or_get) {
     ZoneScoped;
 
     auto res = games.find(id);
     if (res != games.end())
         return or_get ? res->second.lock() : nullptr;
+
+    const auto max_game_count = app->get_settings().max_game_count;
+    if (max_game_count && app->get_game_count() > max_game_count) {
+        return std::unexpected(ser::OperationResponseMessage{
+            .operation_code = OpCodes::Matchmaking::CreateGame, .return_code = ErrorCodes::Server::ServerFull, .debug_message = "Game count limit reached!"});
+    }
 
     std::shared_ptr<Game> fres(new Game(shared_from_this(), std::move(id)), [](Game *ptr) {
         auto& lobby = ptr->lobby;

@@ -3,6 +3,17 @@
 Luxon Server is a clean-room implementation of the Photon LoadBalancing server. It is built on top of the Luxon project, which provides the necessary reimplementation of the ENet protocol and Photon's binary serialization format.
 The goal of this project is to be a drop-in replacement for the official server for multiplayer games that utilize Photon. It aims to support games out of the box, provided they do not rely on complex server-side plugins, though a plugin system is available if needed.
 
+## Table of Contents
+- [Legal Disclaimer and Legal Contributing Requirements](#legal-disclaimer)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Usage](#features)
+- [Platform Support](#platform-support)
+- [FAQ](#faq)
+
+---
+---
+
 ## Legal Disclaimer
 
 > Luxon Server is an independent, open‑source project developed by its contributors. It is **not** affiliated with, endorsed by, or sponsored by Exit Games GmbH or any of its subsidiaries.
@@ -13,7 +24,28 @@ The goal of this project is to be a drop-in replacement for the official server 
 > 
 > Any use of the term "Photon" within this repository is for descriptive purposes only, to indicate compatibility, and does not imply any endorsement or official relationship.
 > 
+> Luxon Server is NOT a competitive product, and will never intersect with the group of people that would generate Exit Games any income. Luxon Server intentionally lacks important features that make the Photon Server SDK useful to paying Exit Games customers (most importantly scalability and load balancing).
+>
 > If you are a representative of Exit Games and have concerns regarding this project, please contact me at tuxifan@posteo.de so I may address them promptly.
+
+### ⚠️ **STOP: Read Carefully Before Contributing**
+
+**Before submitting any issues, pull requests, or code, you must verify that you meet the following legal requirement:**
+
+ - **No Exit Games Agreements**: You must **never** have accepted, signed, or otherwise agreed to the Exit Games / Photon Engine Terms of Service, End User License Agreement (EULA), Non-Disclosure Agreement (NDA), or any other binding agreement with Exit Games in any capacity.
+
+**Additionally, to ensure no intellectual property contamination occurs, contributors must not have:**
+
+ - Decompiled, reverse-engineered using "white-box" methods, or viewed the source code of any proprietary Exit Games/Photon binaries/SDKs. Discovering functionality through "black-box" testing (interacting with the software externally to observe its behavior) is acceptable.
+
+**Why is this necessary?**
+
+If you have ever agreed to the Exit Games Terms of Service, you are bound by their restrictions against reverse engineering and creating derivative works. By accepting code from developers who have agreed to those terms, this project could be exposed to breach-of-contract or copyright claims.
+
+If you do not meet these criteria, you are considered legally "tainted" for the purposes of this project and **cannot contribute**. I appreciate your understanding in helping me keep Luxon Server safe and legally sound.
+
+---
+---
 
 ## Compatibility
 
@@ -51,7 +83,15 @@ cmake ..
 cmake --build .
 ```
 
----
+Possible compile time options:
+ - **`LUXON_SERVER_ENABLE_WEBSERVER`** (default: `ON`): Enable the built-in webserver including the web interface
+ - **`LUXON_SERVER_ENABLE_PLUGINS`** (default: `OFF`): Enables plugin system
+ - **`LUXON_SERVER_POLL`** (default: `OFF`): Polls sockets blindly and rapidly, less efficient and slower
+ - **`LUXON_SERVER_HOOKPOINTS`** (default: `OFF`): Useful when linking LuxonServer as a library, allows hooking into some parts of the server via `ServerManager::hookpoints` (see [hookpoints.hpp](https://github.com/niansa/LuxonServer/blob/master/include/luxon/server/hookpoints.hpp))
+ - **`LUXON_USE_EMBED_RESOURCE`** (default: `OFF` except on Windows): Uses the [embedresource](https://github.com/ankurvdev/embedresource) library for binary embedding instead of inline assembly
+ - **`LUXON_SERVER_TRACY`** (default: `OFF`): Links and enables [Tracy](https://github.com/wolfpld/tracy) client
+ - **`LUXON_ENET_ENABLE_METRICS`** (default: `OFF`): Collects more metrics available as a Prometheus endpoint on webserver (`/metrics`), ready for use with provided [Grafana Dashboard](https://github.com/niansa/LuxonServer/blob/master/grafana-dashboard.json)
+ - **`LUXON_USE_TOMCRYPT`** (default: `OFF`): Use alternative encryption library with wider compatibility
 
 ### Configuration
 

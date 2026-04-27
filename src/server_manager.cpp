@@ -257,12 +257,23 @@ ServerManagerConfig ServerManager::parse_config(const std::string& config_conten
             ParseServerSection(config, StringToServerType(key), section);
         } else if (key == "External") {
             ParseExternalSection(config, section);
+        } else if (key == "EnableIPv6") {
+            if (!section.IsNone())
+                config.enable_ipv6 = section.As<bool>();
         } else if (key == "MaxConnections" || key == "CCU") {
             if (!section.IsNone())
                 config.max_connections = section.As<unsigned>();
         } else if (key == "MaxGamePeers") {
             if (!section.IsNone())
                 config.max_game_peers = section.As<unsigned>();
+        } else if (key == "TickTimeBudget") {
+            if (!section.IsNone())
+                config.tick_time_budget = section.As<uint32_t>();
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+        } else if (key == "SettingsDatabase") {
+            if (!section.IsNone())
+                config.settings_database_path = section.As<std::string>();
+#endif
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         } else if (key == "HTTP") {
             ParseHttpSection(config, section);
@@ -282,8 +293,17 @@ ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(c
 #endif
 
     configs_ = std::move(config.servers);
+    enable_ipv6_ = config.enable_ipv6;
     max_connections_ = config.max_connections;
     max_game_peers_ = NormalizeMaxGamePeers(config.max_game_peers);
+    tick_time_budget_ = config.tick_time_budget;
+
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+    if (!config.settings_database_path.empty()) {
+        log_->info("Using settings database!");
+        settings_manager.emplace(config.settings_database_path);
+    }
+#endif
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     http_config_ = std::move(config.http);
@@ -349,7 +369,7 @@ bool ServerManager::call_in_new_thread(std::move_only_function<void()>&& fn) {
     return ok;
 }
 
-bool ServerManager::delay(unsigned int milliseconds) {
+bool ServerManager::delay(unsigned milliseconds) {
     auto *coro = minicoro::Coroutine::current();
     if (!coro)
         return false;
@@ -394,6 +414,13 @@ void ServerManager::run_scheduled_tasks() {
     }
 }
 
+void ServerManager::stun_keepalive(enet::EnetServer& server, uint16_t port) {
+    if (!server.keepalive_stun_binding())
+        log_->warn("[STUN:{}] Failed to keep alive server STUN binding", port);
+
+    add_scheduled_task(17500, std::bind(&ServerManager::stun_keepalive, this, std::ref(server), port));
+}
+
 void ServerManager::run() {
     // Main Service Loop
     running_ = true;
@@ -420,6 +447,7 @@ bool ServerManager::run_once() {
         // End idle performance timer
         const auto end_time = std::chrono::steady_clock::now();
         const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
         // Store metric
         idle_time.add(static_cast<unsigned>(duration));
 #endif
@@ -455,27 +483,40 @@ bool ServerManager::run_once() {
 #endif
 
         // Dispatch and handle incoming application messages
-#ifndef LUXON_SERVER_POLL
-        const auto& readable_socks = sock_selector_.get_readable_socks();
-#endif
-        for (auto& [port, server] : servers_) {
-            try {
-#ifndef LUXON_SERVER_POLL
-                if (std::ranges::contains(readable_socks, server.native_handle()))
-#endif
-                {
-                    ZoneScopedN("service_server");
-                    server.service_self();
+        uint32_t remaining_timeout = tick_time_budget_;
+        size_t servers_to_process = servers_.size();
+
+        {
+            ZoneScopedN("service_peers");
+
+            // Round-robin over servers to prevent starvation
+            while (servers_to_process > 0 && remaining_timeout > 0) {
+                // Wrap around to beginning if end is hit
+                if (next_server_it_ == servers_.end())
+                    next_server_it_ = servers_.begin();
+
+                auto& [port, server] = *next_server_it_;
+
+                try {
+                    // Service peers using whatever remains of global budget
+                    if (!server.service_peers(remaining_timeout))
+                        log_->warn("Queueing UDP datagrams on port {}!", port);
+                } catch (const std::exception& e) {
+                    log_->warn("Uncaught exception on port {}: {}", port, e.what());
                 }
-                if (!server.service_peers())
-                    log_->warn("Queueing UDP datagrams!");
-            } catch (const std::exception& e) {
-                log_->warn("Uncaught exception: {}", e.what());
+
+                // Move to the next server and decrement safety counter
+                ++next_server_it_;
+                --servers_to_process;
             }
         }
+
+        if (servers_to_process > 0)
+            log_->warn("Tick time budget exhausted! {} servers deferred to next tick.", servers_to_process);
+
         // Trigger updates
         if (slow_update) {
-            ZoneScopedN("service_server_slow_updates");
+            ZoneScopedN("service_slow_updates");
 #ifdef LUXON_ENET_ENABLE_METRICS
             // Tick enet metrics
             const auto enet_metrics_last_tick_ms = enet_metrics_last_tick_.get();
@@ -496,16 +537,14 @@ bool ServerManager::run_once() {
                 }
             }
         }
+
         // Run scheduled tasks
         run_scheduled_tasks();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
+
         // Update HTTP server
         if (http_server_)
-#ifndef LUXON_SERVER_POLL
-            http_server_->service(readable_socks);
-#else
-            http_server_->service();
-#endif
+            http_server_->service_now();
 
         // End busy performance timer
         const auto end_time = std::chrono::steady_clock::now();
@@ -530,7 +569,8 @@ void ServerManager::setup_http_server() {
     log_->info("Initializing HTTP Server on port {}", http_config_->port);
     http_server_.emplace(*this);
 #ifndef LUXON_SERVER_POLL
-    http_server_->on_create_fd = std::bind(&SockSelector::add_read_fd, &sock_selector_, std::placeholders::_1);
+    http_server_->on_create_fd =
+        std::bind(&SockSelector::add_read_fd, &sock_selector_, std::placeholders::_1, [this](int fd) { http_server_->service_later(fd); });
     http_server_->on_delete_fd = std::bind(&SockSelector::remove_read_fd, &sock_selector_, std::placeholders::_1);
 #endif
     http_server_->bind(http_config_->address, http_config_->port);
@@ -631,7 +671,7 @@ void ServerManager::setup() {
                 }
 #endif
 #ifdef LUXON_SERVER_ENABLE_PLUGINS
-                if (!(new minicoro::Coroutine([handler, cmd, this](minicoro::Coroutine& coro) {
+                if (!(new minicoro::Coroutine([handler, cmd = std::move(cmd), this](minicoro::Coroutine& coro) mutable {
                          // Make coroutine own itself
                          auto owned_coro =
                              std::unique_ptr<minicoro::Coroutine, std::function<void(minicoro::Coroutine *)>>(&coro, [this](minicoro::Coroutine *coro) {
@@ -670,24 +710,31 @@ void ServerManager::setup() {
         // Make server ready for listening
         log_->info("Starting {} on port {}", ServerTypeToString(config.type), config.port);
 
-        if (!server.bind(config.port)) {
+        if (!server.bind(config.port, enable_ipv6_)) {
             log_->error("Failed to bind {} to port {}!", ServerTypeToString(config.type), config.port);
             continue;
         }
 
         // Start STUN binding request if enabled
         if (!config.stun_server_host.empty()) {
-            if (server.request_stun_binding(config.stun_server_host.c_str(), config.stun_server_port))
+            if (server.request_stun_binding(config.stun_server_host.c_str(), enable_ipv6_, config.stun_server_port)) {
                 log_->info("[STUN:{}] Starting NAT punch via STUN server: {}:{}", config.port, config.stun_server_host, config.stun_server_port);
-            else
+                stun_keepalive(server, config.port);
+            } else {
                 log_->error("[STUN:{}] Failed to start NAT punch via STUN server", config.port);
+            }
         }
 
         // Add server to sock selector
 #ifndef LUXON_SERVER_POLL
-        if (!sock_selector_.add_read_fd(server.native_handle()))
+        if (!sock_selector_.add_read_fd(server.native_handle(), [&server](int fd) {
+                ZoneScopedN("service_server");
+                server.service_self();
+            }))
             log_->error("Failed to add new server to sock selector!", ServerTypeToString(config.type), config.port);
 #endif
     }
+
+    next_server_it_ = servers_.end();
 }
 } // namespace server

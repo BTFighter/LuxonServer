@@ -19,7 +19,7 @@ timeval ms_to_timeval(unsigned long long ms) {
 } // namespace
 
 SockSelector::SockSelector() {
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32)
     epoll_fd = epoll_create1(0);
     events.resize(128);
 #else
@@ -34,26 +34,28 @@ SockSelector::~SockSelector() {
 #ifdef __linux__
     if (epoll_fd >= 0)
         close(epoll_fd);
+#else
+#ifdef _WIN32
+    if (epoll_fd)
+        epoll_close(epoll_fd);
+#endif
 #endif
 }
 
-bool SockSelector::run(unsigned int timeout_ms) {
-    readable_socks.clear();
-
-#ifdef __linux__
+bool SockSelector::run(unsigned timeout_ms) {
+#if defined(__linux__) || defined(_WIN32)
     int t = (timeout_ms == 0) ? -1 : static_cast<int>(timeout_ms);
     int nfds = epoll_wait(epoll_fd, events.data(), events.size(), t);
 
     ZoneScoped;
 
-    if (nfds < 0) {
-        readable_socks.clear();
+    if (nfds < 0)
         return false;
-    }
 
-    readable_socks.resize(nfds);
-    for (int i = 0; i < nfds; ++i)
-        readable_socks[i] = events[i].data.fd;
+    for (int i = 0; i < nfds; ++i) {
+        const int fd = events[i].data.fd;
+        callbacks[fd](fd);
+    }
 
     if (nfds == (int)events.size())
         events.resize(events.size() * 2);
@@ -68,47 +70,38 @@ bool SockSelector::run(unsigned int timeout_ms) {
     fd_set read_fd_wset = read_fd_set;
     fd_set except_fd_wset = read_fd_set;
     int fd_count = select(highest_fd + 1, &read_fd_wset, nullptr, &except_fd_wset, timeout_ms ? &tv : nullptr);
-    if (fd_count < 0) {
-        readable_socks.clear();
+    if (fd_count < 0)
         return false;
-    }
 
-    readable_socks.resize(fd_count);
-    unsigned index = 0;
     for (auto fd : read_fds)
         if (FD_ISSET(fd, &read_fd_wset) || FD_ISSET(fd, &except_fd_wset))
-            readable_socks[index++] = fd;
-    readable_socks.resize(index);
+            callbacks[fd](fd);
 
     return true;
 #endif
 }
 
-bool SockSelector::add_read_fd(socket_t fd) {
+bool SockSelector::add_read_fd(socket_t fd, callback_t&& callback) {
     ZoneScoped;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32)
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
     ev.data.fd = fd;
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
         return false;
 #else
-#ifdef _WIN32
-    if (read_fds.size() >= FD_SETSIZE)
-        return false; // Prevent Windows overflow
-#else
     if (fd >= FD_SETSIZE)
         return false; // Prevent POSIX stack corruption
-#endif
 
     FD_SET(fd, &read_fd_set);
     read_fds.push_back(fd);
-#ifndef _WIN32
+
     if (fd > highest_fd)
         highest_fd = fd;
 #endif
-#endif
+
+    callbacks[fd] = std::move(callback);
 
     return true;
 }
@@ -116,7 +109,7 @@ bool SockSelector::add_read_fd(socket_t fd) {
 void SockSelector::remove_read_fd(socket_t fd) {
     ZoneScoped;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(_WIN32)
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
 #else
     FD_CLR(fd, &read_fd_set);
@@ -129,7 +122,7 @@ void SockSelector::remove_read_fd(socket_t fd) {
             break;
         }
     }
-#ifndef _WIN32
+
     if (fd == highest_fd) {
         highest_fd = 0;
         for (auto s : read_fds)
@@ -137,6 +130,7 @@ void SockSelector::remove_read_fd(socket_t fd) {
                 highest_fd = s;
     }
 #endif
-#endif
+
+    callbacks.erase(fd);
 }
 } // namespace server
