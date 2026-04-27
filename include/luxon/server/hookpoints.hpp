@@ -25,13 +25,11 @@ struct Hookpoints {
 };
 } // namespace server
 
-#define LUXON_SERVER_HOOKPOINT(name, ...)                                                                                                                      \
-    if (server_manager_.hookpoints.name && server_manager_.hookpoints.name(*this, __VA_ARGS__))                                                                \
-    return
 #define LUXON_SERVER_HOOKPOINT_CSM(custom_server_manager, name, ...)                                                                                           \
     if (custom_server_manager.hookpoints.name && custom_server_manager.hookpoints.name(*this, __VA_ARGS__))                                                    \
     return
+#define LUXON_SERVER_HOOKPOINT(name, ...) LUXON_SERVER_HOOKPOINT_CSM(server_manager_, name, __VA_ARGS__)
 #else
-#define LUXON_SERVER_HOOKPOINT(...)
 #define LUXON_SERVER_HOOKPOINT_CSM(...)
+#define LUXON_SERVER_HOOKPOINT(...)
 #endif
