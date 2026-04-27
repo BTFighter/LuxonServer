@@ -277,7 +277,12 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
 
             // Create new game with given ID
             peer_->log->info("Creating game: {}", game_id);
-            auto game = lobby.value()->create_game(std::move(game_id));
+            auto game_expected = lobby.value()->create_game(std::move(game_id));
+            if (!game_expected) {
+                send(proto_->Serialize(game_expected.error()));
+                return;
+            }
+            auto& game = *game_expected;
 
             // Join the game
             peer_->persistent->current_game = game;
@@ -336,7 +341,13 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
                 else
                     new_game_id = game_id;
 
-                game = lobby.value()->create_game(std::move(new_game_id));
+                auto game_expected = lobby.value()->create_game(std::move(new_game_id));
+                if (!game_expected) {
+                    send(proto_->Serialize(game_expected.error()));
+                    return;
+                }
+                game = *game_expected;
+
                 is_new = true;
             } else {
                 game = res->second.lock();
@@ -489,7 +500,12 @@ void MasterServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& 
                     game_id = generate_game_id(peer_->persistent->user_id);
 
                 // Create new game
-                selected_game = lobby.value()->create_game(std::move(game_id));
+                auto game_expected = lobby.value()->create_game(std::move(game_id));
+                if (!game_expected) {
+                    send(proto_->Serialize(game_expected.error()));
+                    return;
+                }
+                selected_game = *game_expected;
             }
 
             // Make token valid for this game

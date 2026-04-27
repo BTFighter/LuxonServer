@@ -41,6 +41,19 @@ std::string generate_user_id() {
     std::ranges::generate(fres, [&] { return charset[dist(gen)]; });
     return fres;
 }
+
+std::string get_anonymous_user_id(unsigned custom_anonymous_uid_mode, std::string_view prefix, std::string requested_uid) {
+    if (custom_anonymous_uid_mode == AppSettings::CustomAnonymousUIDMode::ForceRandom)
+        return std::format("{}{}", prefix, generate_user_id());
+
+    if (requested_uid.empty())
+        requested_uid = generate_user_id();
+
+    if (custom_anonymous_uid_mode == AppSettings::CustomAnonymousUIDMode::AllowWithPrefix)
+        return std::format("{}{}", prefix, requested_uid);
+    else
+        return requested_uid;
+}
 } // namespace
 
 ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& peer, const ser::OperationRequestMessage& req,
@@ -73,50 +86,86 @@ ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& 
         auto& p = peer.persistent = create_persistent_peer();
 
         // Handle app version
+        const std::string& app_id = params->get<DictKeyCodes::LoadBalancing::ApplicationId>();
         const std::string *version_ptr = params->get<DictKeyCodes::LoadBalancing::AppVersion>();
         const std::string app_version = version_ptr ? *version_ptr : "(poor attempt at emulating null app version)";
 
-        p->app = App::get(server_manager, params->get<DictKeyCodes::LoadBalancing::ApplicationId>(), app_version);
+        p->app = App::get(server_manager, app_id, app_version);
 
-        // Generate user ID if not provided
-        if (const std::string *uid = params->get<DictKeyCodes::LoadBalancing::UserId>()) {
-            const uint8_t auth_type = params->get<DictKeyCodes::AuthAndLobby::ClientAuthenticationType>();
-            const unsigned auth_mode = server_manager.get_auth_mode(); // 0 = Weak, 1 = Anonymous, 2 = Strict
+        // Make sure app is available
+        if (!p->app)
+            return {.operation_code = req.operation_code, .return_code = ErrorCodes::Auth::InvalidAuthentication, .debug_message = "Invalid app id"};
 
-            if (auth_mode == 0 || (auth_mode == 1 && auth_type == 0)) {
-                // Weak authentication (all pass) or anonymous authentication (type 0 passes)
-                p->user_id = *uid;
-            } else if (auth_type == 0) {
-                // Type 0 specified, but server strictly requires valid authentication plugins
-                return {.operation_code = req.operation_code,
-                        .return_code = ErrorCodes::Auth::CustomAuthenticationFailed,
-                        .debug_message = "Anonymous authentication is not allowed"};
-            } else {
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
-                const std::string_view auth_params = params->get<DictKeyCodes::AuthAndLobby::ClientAuthenticationParameters>();
+        // Get app settings
+        const auto& app_settings = p->app->get_settings();
 
-                // Attempt to dispatch custom authentication via registered plugins
-                if (auto plugin_res = auth_plugins::registry::call(auth_type, *uid, auth_params, "")) {
-                    if (plugin_res->has_value()) {
-                        p->user_id = plugin_res->value();
-                    } else {
-                        auto err_resp = plugin_res->error();
-                        err_resp.operation_code = req.operation_code;
-                        return err_resp;
-                    }
-                } else {
-                    return {.operation_code = req.operation_code,
-                            .return_code = ErrorCodes::Auth::CustomAuthenticationFailed,
-                            .debug_message = "Authentication type not available"};
-                }
-#else
-                return {.operation_code = req.operation_code,
-                        .return_code = ErrorCodes::Auth::CustomAuthenticationFailed,
-                        .debug_message = "Authentication plugins are disabled"};
-#endif
-            }
+        // Make sure to not exceed max peer count of app
+        if (app_settings.max_peers && p->app->get_peer_count() >= app_settings.max_peers)
+            return {.operation_code = req.operation_code,
+                    .return_code = ErrorCodes::Throttling::MaxCcuReached,
+                    .debug_message = std::format("Max CCU of {} reached", app_settings.max_peers)};
+
+        // Extract authentication parameters
+        const std::string *uid = params->get<DictKeyCodes::LoadBalancing::UserId>();
+        const uint8_t auth_type = params->get<DictKeyCodes::AuthAndLobby::ClientAuthenticationType>();
+
+        if (app_settings.auth_mode == AppSettings::AuthMode::Weak || (app_settings.auth_mode == AppSettings::AuthMode::Anonymous && auth_type == 0)) {
+            // Weak authentication (all pass) or anonymous authentication (type 0 passes)
+            p->user_id = get_anonymous_user_id(app_settings.custom_anonymous_uid_mode, app_settings.anonymous_uid_prefix, uid ? *uid : "");
+
+        } else if (auth_type == 0) {
+            // Type 0 (Anonymous) specified or implied, but server strictly requires valid authentication
+            return {.operation_code = req.operation_code,
+                    .return_code = ErrorCodes::Auth::CustomAuthenticationFailed,
+                    .debug_message = "Anonymous authentication is not allowed"};
+
         } else {
-            p->user_id = generate_user_id();
+            // Strict mode with custom authentication type. A UserId is strictly mandatory here.
+            if (!uid || uid->empty()) {
+                return {.operation_code = req.operation_code,
+                        .return_code = ErrorCodes::Auth::InvalidAuthentication,
+                        .debug_message = "User ID is required for custom authentication"};
+            }
+
+            // Check if the specific authentication provider is configured and allowed
+            std::optional<AuthProviderSettings> auth_provider_opt;
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+            if (auto& settings_manager = server_manager.settings_manager)
+                auth_provider_opt = settings_manager->get_auth_provider(app_settings.appid, auth_type);
+#endif
+
+            if (!auth_provider_opt || !auth_provider_opt->is_allowed) {
+                return {.operation_code = req.operation_code,
+                        .return_code = ErrorCodes::Auth::CustomAuthenticationFailed,
+                        .debug_message = "Authentication provider is not allowed"};
+            }
+
+#ifdef LUXON_SERVER_ENABLE_PLUGINS
+            const std::string& auth_params = params->get<DictKeyCodes::AuthAndLobby::ClientAuthenticationParameters>();
+
+            // Fetch the provider URL (or fallback to empty string) to pass to the plugin
+            std::string plugin_context = auth_provider_opt->auth_url.value_or("");
+
+            // Attempt to dispatch custom authentication via registered plugins
+            if (auto plugin_res =
+                    auth_plugins::registry::call(auth_type, *uid, auth_params, plugin_context, auth_provider_opt->secret, auth_provider_opt->auth_url)) {
+                if (plugin_res->has_value()) {
+                    p->user_id = plugin_res->value();
+                } else {
+                    auto err_resp = plugin_res->error();
+                    err_resp.operation_code = req.operation_code;
+                    return err_resp;
+                }
+            } else {
+                return {.operation_code = req.operation_code,
+                        .return_code = ErrorCodes::Auth::CustomAuthenticationFailed,
+                        .debug_message = "Authentication type not available"};
+            }
+#else
+            return {.operation_code = req.operation_code,
+                    .return_code = ErrorCodes::Auth::CustomAuthenticationFailed,
+                    .debug_message = "Authentication plugins are disabled"};
+#endif
         }
     }
 

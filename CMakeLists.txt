@@ -37,7 +37,7 @@ if (MSVC)
     set(LUXON_USE_EMBED_RESOURCE ON)
 endif()
 
-# Linux/Windows get to use mbedtls and spdlog
+# Linux/Windows get to use mbedtls, spdlog and setting storage database support
 if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
     # Generic configuration
     add_subdirectory(Luxon)
@@ -45,6 +45,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
     CPMAddPackage("gl:niansa/sanmake@1.0")
 
     option(LUXON_SERVER_USE_SPDLOG "Use spdlog for Luxon server" ON)
+    option(LUXON_SERVER_ENABLE_SETTINGS_DATABASE "Build Luxon Server with settings storage database support enabled" ON)
 else()
     # Compatible configuration
     set(LUXON_USE_TOMCRYPT ON CACHE BOOL "Force use of libtomcrypt" FORCE)
@@ -53,6 +54,7 @@ else()
     add_library(sanmake INTERFACE)
 
     set(LUXON_SERVER_USE_SPDLOG OFF)
+    set(LUXON_SERVER_ENABLE_SETTINGS_DATABASE OFF)
 endif()
 
 # Include spdlog
@@ -86,7 +88,8 @@ add_library(luxon_server_lib
     include/luxon/server/sock_selector.hpp  include/luxon/server/json_fwd.hpp      src/peer.cpp src/yaml.hpp
     include/luxon/server/lobby.hpp    include/luxon/server/string_hash.hpp  src/handler_base.cpp src/json.hpp      src/peer_persistence.cpp
     include/luxon/server/hookpoints.hpp
-    include/luxon/server/data_model.hpp src/sqlite3.c src/sqlite3.h
+    include/luxon/server/data_model.hpp
+    include/luxon/server/sqlite3.h src/sqlite3.c
     src/lobby_vt.hpp src/lobby_vt.cpp
 
     tracy/public/tracy/Tracy.hpp
@@ -160,6 +163,14 @@ endif()
 if (LUXON_SERVER_USE_SPDLOG)
     target_link_libraries(luxon_server_lib PUBLIC spdlog::spdlog)
     target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_USE_SPDLOG)
+endif()
+
+if (LUXON_SERVER_ENABLE_SETTINGS_DATABASE)
+    target_sources(luxon_server_lib PRIVATE
+        include/luxon/server/sqlite3pp.hpp src/sqlite3pp.cpp
+        include/luxon/server/settings_manager.hpp src/settings_manager.cpp
+    )
+    target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_ENABLE_SETTINGS_DATABASE)
 endif()
 
 if (LUXON_SERVER_TRACY)

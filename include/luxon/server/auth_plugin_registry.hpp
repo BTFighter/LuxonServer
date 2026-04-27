@@ -14,10 +14,12 @@ namespace server {
 namespace auth_plugins {
 namespace registry {
 using AuthResult = std::expected<std::string, ser::OperationResponseMessage>;
-using AuthCallback = AuthResult (*)(std::string_view, std::string_view, std::string_view);
+using AuthCallback = AuthResult (*)(const std::string& requested_user_id, const std::string& params, const std::string& data,
+                                    const std::optional<std::string>& secret, const std::optional<std::string>& auth_url);
 
 bool register_(unsigned type, AuthCallback callback);
-std::optional<AuthResult> call(unsigned type, std::string_view requested_user_id, std::string_view params, std::string_view data);
+std::optional<AuthResult> call(unsigned type, const std::string& requested_user_id, const std::string& params, const std::string& data,
+                               const std::optional<std::string>& secret, const std::optional<std::string>& auth_url);
 } // namespace registry
 } // namespace auth_plugins
 } // namespace server

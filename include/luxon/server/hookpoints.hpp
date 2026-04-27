@@ -15,17 +15,23 @@ class EnetCommandHeader;
 namespace server {
 class HandlerBase;
 class MasterServerHandler;
+struct AppSettings;
 
 struct Hookpoints {
     std::function<bool(MasterServerHandler&, const std::string&, bool)> MasterServer_HandleOperationRequest_JoinGame;
     std::function<bool(MasterServerHandler&, const std::string&)> MasterServer_HandleOperationRequest_CreateGame;
     std::function<bool(HandlerBase&, ser::Message&, enet::EnetCommandHeader&)> HandlerBase_HandleENetCommand_OnMessage;
+    std::function<bool(App&, AppSettings&)> App_load_app_settings;
 };
 } // namespace server
 
 #define LUXON_SERVER_HOOKPOINT(name, ...)                                                                                                                      \
     if (server_manager_.hookpoints.name && server_manager_.hookpoints.name(*this, __VA_ARGS__))                                                                \
     return
+#define LUXON_SERVER_HOOKPOINT_CSM(custom_server_manager, name, ...)                                                                                           \
+    if (custom_server_manager.hookpoints.name && custom_server_manager.hookpoints.name(*this, __VA_ARGS__))                                                    \
+    return
 #else
 #define LUXON_SERVER_HOOKPOINT(...)
+#define LUXON_SERVER_HOOKPOINT_CSM(...)
 #endif

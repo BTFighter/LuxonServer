@@ -42,7 +42,7 @@ SockSelector::~SockSelector() {
 #endif
 }
 
-bool SockSelector::run(unsigned int timeout_ms) {
+bool SockSelector::run(unsigned timeout_ms) {
 #if defined(__linux__) || defined(_WIN32)
     int t = (timeout_ms == 0) ? -1 : static_cast<int>(timeout_ms);
     int nfds = epoll_wait(epoll_fd, events.data(), events.size(), t);

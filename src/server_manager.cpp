@@ -269,9 +269,11 @@ ServerManagerConfig ServerManager::parse_config(const std::string& config_conten
         } else if (key == "TickTimeBudget") {
             if (!section.IsNone())
                 config.tick_time_budget = section.As<uint32_t>();
-        } else if (key == "AuthMode") {
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+        } else if (key == "SettingsDatabase") {
             if (!section.IsNone())
-                config.authentication_mode = std::clamp<unsigned>(section.As<unsigned>(), 0, 2);
+                config.settings_database_path = section.As<std::string>();
+#endif
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
         } else if (key == "HTTP") {
             ParseHttpSection(config, section);
@@ -295,7 +297,13 @@ ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(c
     max_connections_ = config.max_connections;
     max_game_peers_ = NormalizeMaxGamePeers(config.max_game_peers);
     tick_time_budget_ = config.tick_time_budget;
-    authentication_mode_ = config.authentication_mode;
+
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+    if (!config.settings_database_path.empty()) {
+        log_->info("Using settings database!");
+        settings_manager.emplace(config.settings_database_path);
+    }
+#endif
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     http_config_ = std::move(config.http);
@@ -361,7 +369,7 @@ bool ServerManager::call_in_new_thread(std::move_only_function<void()>&& fn) {
     return ok;
 }
 
-bool ServerManager::delay(unsigned int milliseconds) {
+bool ServerManager::delay(unsigned milliseconds) {
     auto *coro = minicoro::Coroutine::current();
     if (!coro)
         return false;

@@ -4,6 +4,7 @@
 #include "apps.hpp"
 #include "lobby.hpp"
 #include "server_manager.hpp"
+#include "hookpoints.hpp"
 #include "string_hash.hpp"
 
 #include <unordered_map>
@@ -13,12 +14,63 @@
 namespace server {
 size_t LobbyIdHash::operator()(const LobbyId& k) const noexcept {
     std::size_t h1 = std::hash<std::string_view>{}(k.first);
-    std::size_t h2 = std::hash<unsigned int>{}(k.second); // avoid uint8_t quirks
+    std::size_t h2 = std::hash<unsigned>{}(k.second); // avoid uint8_t quirks
     // hash combine
     return h1 ^ (h2 + 0x9e3779b97f4a7c15ull + (h1 << 6) + (h1 >> 2));
 }
 
+void AppSettings::enforce_global_config(ServerManager& server_manager) {
+    if (const uint8_t global_max_game_peers = server_manager.get_max_game_peers())
+        max_peers_per_game = (max_peers_per_game == 0) ? global_max_game_peers : std::min<unsigned>(max_peers_per_game, global_max_game_peers);
+}
+
 App::App(ServerManager& server_manager, std::string_view id, std::string_view version) : server_manager(server_manager), id(id), version(version) {}
+
+bool App::load_app_settings() {
+    // Get settings
+    const bool fres = [this]() {
+        // Try hookpoint
+        LUXON_SERVER_HOOKPOINT_CSM(server_manager, App_load_app_settings, settings_) true;
+
+        // Try database
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+        if (server_manager.settings_manager) {
+            if (const auto settings = server_manager.settings_manager->get_app_settings(std::string(id)))
+                settings_ = *settings;
+            else
+                return false;
+        }
+
+#endif
+        return true;
+    }();
+
+    // Enforce globally configured caps
+    if (fres)
+        settings_.enforce_global_config(server_manager);
+
+    return fres;
+}
+
+size_t App::get_game_count() const {
+    size_t fres = 0;
+
+    for (const auto& [name, weak_lobby] : lobbies_)
+        if (auto lobby = weak_lobby.lock())
+            fres += lobby->games.size();
+
+    return fres;
+}
+
+size_t App::get_peer_count() const {
+    size_t fres = 0;
+    for (const auto& pp : server_manager.peer_persistent_data)
+        fres += !!(pp->app.get() == this);
+    for (const auto& [lobby_name, weak_lobby] : get_lobbies())
+        if (auto lobby = weak_lobby.lock())
+            fres += lobby->get_peer_count();
+    return fres;
+}
 
 std::shared_ptr<Lobby> App::get_lobby(LobbyId id) {
     ZoneScoped;
@@ -59,6 +111,13 @@ std::shared_ptr<App> App::get(ServerManager& server_manager, const std::string& 
             server_manager.apps.erase(it);
         delete ptr;
     });
+
+    if (!fres)
+        return nullptr;
+
+    if (!fres->load_app_settings())
+        return nullptr;
+
     res.first->second = fres;
     return fres;
 }

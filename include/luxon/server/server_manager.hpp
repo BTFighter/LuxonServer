@@ -9,6 +9,9 @@
 #include "string_hash.hpp"
 #include "logger.hpp"
 #include "hookpoints.hpp"
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+#include "settings_manager.hpp"
+#endif
 #ifndef LUXON_SERVER_POLL
 #include "sock_selector.hpp"
 #endif
@@ -97,14 +100,13 @@ struct ServerManagerConfig {
     ///
     uint32_t tick_time_budget = 2000;
 
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
     ///
-    /// \brief Authentication mode
-    /// 0 = Weak, 1 = Anonymous, 2 = Strict
-    ///  - Weak means any authentication type will always succeed
-    ///  - Anonymous means authentication will be checked for non-zero authenticatio type
-    ///  - Strict means anonymous authentication will always fail
+    /// \brief Settings database file path
+    /// Settings database will be initialized/read from this path.
     ///
-    unsigned authentication_mode = 0;
+    std::string settings_database_path;
+#endif
 
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
     std::optional<HttpServerConfig> http;
@@ -165,6 +167,9 @@ public:
     std::unordered_map<std::pair<std::string, std::string>, std::weak_ptr<App>, StringPairHasher> apps;
     std::vector<std::unique_ptr<PeerPersistent>> peer_persistent_data;
     std::vector<ServerEndpoint> endpoints;
+#ifdef LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+    std::optional<SettingsManager> settings_manager;
+#endif
 
 #ifdef LUXON_SERVER_ENABLE_HOOKPOINTS
     Hookpoints hookpoints;
@@ -205,7 +210,6 @@ private:
     unsigned max_connections_ = 0;
     uint8_t max_game_peers_ = 0;
     uint32_t tick_time_budget_ = 2000;
-    unsigned authentication_mode_ = 0;
 
     void setup();
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
@@ -356,10 +360,5 @@ public:
     ///
     const enet::Metrics& get_enet_metrics() const { return enet_metrics_; }
 #endif
-
-    ///
-    /// \brief Gets all metrics exposed by ENet
-    ///
-    unsigned get_auth_mode() const { return authentication_mode_; }
 };
 } // namespace server

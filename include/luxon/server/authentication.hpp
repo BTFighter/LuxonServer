@@ -11,6 +11,14 @@
 namespace server {
 class ServerManager;
 class Peer;
+struct AppSettings;
+
+struct AuthProviderSettings {
+    std::string appid;
+    uint8_t auth_type;
+    bool is_allowed;
+    std::optional<std::string> secret, auth_url;
+};
 
 ser::OperationResponseMessage authenticate(ServerManager& server_manager, Peer& peer, const ser::OperationRequestMessage& req,
                                            const enet::EnetCommandHeader& cmd_header, bool refresh_token = true);

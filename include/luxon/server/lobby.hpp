@@ -3,13 +3,17 @@
 
 #pragma once
 
+#include "global.hpp"
+
 #include <string>
 #include <memory>
 #include <list>
 #include <vector>
+#include <expected>
 #include <functional>
 #include <unordered_map>
 #include <cstdint>
+#include <luxon/ser_types.hpp>
 
 typedef struct sqlite3 sqlite3;
 
@@ -42,7 +46,7 @@ struct Lobby : std::enable_shared_from_this<Lobby> {
 
     sqlite3 *sql{};
 
-    std::shared_ptr<Game> create_game(std::string id, bool or_get = false);
+    std::expected<std::shared_ptr<Game>, ser::OperationResponseMessage> create_game(std::string id, bool or_get = false);
 
     size_t get_peer_count() const;
     size_t get_master_peer_count() const;
