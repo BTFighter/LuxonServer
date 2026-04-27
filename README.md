@@ -11,6 +11,9 @@ The goal of this project is to be a drop-in replacement for the official server 
 - [Platform Support](#platform-support)
 - [FAQ](#faq)
 
+---
+---
+
 ## Legal Disclaimer
 
 > Luxon Server is an independent, open‑source project developed by its contributors. It is **not** affiliated with, endorsed by, or sponsored by Exit Games GmbH or any of its subsidiaries.
@@ -25,7 +28,7 @@ The goal of this project is to be a drop-in replacement for the official server 
 >
 > If you are a representative of Exit Games and have concerns regarding this project, please contact me at tuxifan@posteo.de so I may address them promptly.
 
-### **STOP: Read Before Contributing**
+### ⚠️ **STOP: Read Carefully Before Contributing**
 
 **Before submitting any issues, pull requests, or code, you must verify that you meet the following legal requirement:**
 
@@ -40,6 +43,9 @@ The goal of this project is to be a drop-in replacement for the official server 
 If you have ever agreed to the Exit Games Terms of Service, you are bound by their restrictions against reverse engineering and creating derivative works. By accepting code from developers who have agreed to those terms, this project could be exposed to breach-of-contract or copyright claims.
 
 If you do not meet these criteria, you are considered legally "tainted" for the purposes of this project and **cannot contribute**. I appreciate your understanding in helping me keep Luxon Server safe and legally sound.
+
+---
+---
 
 ## Compatibility
 
