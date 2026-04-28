@@ -160,6 +160,7 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
             Event event;
             event.sender_actor_id = game_peer_->actor_id;
             event.code = params->get<Code>();
+            event.data = std::move(req.parameters[Data]);
             event.delivery_mode = enet::FlagsToEnetDeliveryMode(cmd_header.flags);
             event.interest_group = params->get<InterestGroup>();
             event.channel = cmd_header.channel_id;
@@ -182,9 +183,6 @@ void GameServerHandler::HandleOperationRequest(ser::OperationRequestMessage&& re
                     return;
                 }
             });
-
-            // Now move data so we don't steal it from the plugin
-            event.data = std::move(req.parameters[Data]);
 
             // Make sure client isn't attempting to raise a Photon event
             if (event.code > 220) {
