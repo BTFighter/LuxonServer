@@ -1,6 +1,6 @@
 # Luxon Server
 
-Luxon Server is a clean-room implementation of the Photon LoadBalancing server. It is built on top of the Luxon project, which provides the necessary reimplementation of the ENet protocol and Photon's binary serialization format.
+Luxon Server is a clean-room implementation of the Photon Realtime server. It is built on top of the Luxon project, which provides the necessary reimplementation of the ENet protocol and Photon's binary serialization format.
 The goal of this project is to be a drop-in replacement for the official server for multiplayer games that utilize Photon. It aims to support games out of the box, provided they do not rely on complex server-side plugins, though a plugin system is available if needed.
 
 ## Table of Contents
@@ -130,7 +130,7 @@ The server is primarily developed for Linux and Windows. There is also full supp
 ## FAQ
 
 **Q:** Why is the server completely single-threaded?\
-**A:** Luxon Server is NOT supposed to be used as an alternative the the official LoadBalancing software. That means it doesn't have to handle loads big enough to saturate a single core even on very low-end systems. I have estimated the *New Nintendo 3DS* as a server to be able to handle at least 10, probably up to 30 concurrently active players! Plus, strict single-threading keeps the codebase simple.
+**A:** Luxon Server is NOT supposed to be used as an alternative the the official Photon Server SDK. That means it doesn't have to handle loads big enough to saturate a single core even on very low-end systems. I have estimated the *New Nintendo 3DS* as a server to be able to handle at least 10, probably up to 30 concurrently active players! Plus, strict single-threading keeps the codebase simple.
 
 **Q:** Are there any plans on implementing *actual* load balancing (not just the protocol) across multiple systems/processes?\
 **A:** I have looked into spawning more processes running GameServer instances, as an alternative to multi-threading. However, I am strictly against supporting load balancing across different systems. I do NOT want to agitate Exit Games by releasing a competitive product.
