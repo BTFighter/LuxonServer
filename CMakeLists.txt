@@ -102,9 +102,9 @@ target_link_libraries(luxon_server_lib
 target_include_directories(luxon_server_lib PRIVATE include/luxon/server tracy/public PUBLIC include)
 target_compile_definitions(luxon_server_lib PRIVATE SQLITE_CUSTOM_INCLUDE=sqlite3-config.h)
 
-if (CMAKE_BUILD_TYPE STREQUAL Debug)
-    target_link_libraries(luxon_server_lib PRIVATE luxon_visualizer)
-endif()
+target_link_libraries(luxon_server_lib PRIVATE
+    $<$<CONFIG:Debug>:luxon_visualizer>
+)
 
 add_executable(luxon_server src/main.cpp)
 target_link_libraries(luxon_server luxon_server_lib)
