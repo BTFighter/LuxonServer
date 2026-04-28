@@ -111,7 +111,7 @@ target_link_libraries(luxon_server luxon_server_lib)
 
 # Windows specific fixes
 if (MSVC)
-    target_compile_definitions(luxon_server_lib PRIVATE NOMINMAX)
+    target_compile_definitions(luxon_server_lib PUBLIC NOMINMAX)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
