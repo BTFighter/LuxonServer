@@ -1,5 +1,6 @@
 stages:
   - build
+  - strip
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -21,6 +22,7 @@ build:alpine:amd64:
   script:
     - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXE_LINKER_FLAGS="-static"
     - cmake --build build
+    - mv build/luxon_server build/luxon_server.musl-static.rel+debinfo.linux-x86_64
 
 # RelWithDebInfo build amd64 via Debian Trixie
 build:debian:amd64:
@@ -31,6 +33,7 @@ build:debian:amd64:
   script:
     - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
     - cmake --build build
+    - mv build/luxon_server build/luxon_server.glibc.rel+debinfo.linux-x86_64
 
 # RelWithDebInfo build aarch64 via Debian Trixie
 build:debian:aarch64:
@@ -42,6 +45,7 @@ build:debian:aarch64:
   script:
     - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
     - cmake --build build
+    - mv build/luxon_server build/luxon_server.glibc.rel+debinfo.linux-aarch64
 
 # RelWithDebInfo build amd64 via llvm-mingw
 build:mingw:amd64:
@@ -52,6 +56,7 @@ build:mingw:amd64:
   script:
     - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-clang -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-clang++ -DCMAKE_EXE_LINKER_FLAGS="-static"
     - cmake --build build
+    - mv build/luxon_server.exe build/luxon_server.mingw.rel+debinfo.exe
 
 # RelWithDebInfo build Nintendo 3DS via devkitpro
 build:nintendo_3ds:
@@ -61,4 +66,29 @@ build:nintendo_3ds:
     - source /etc/profile.d/devkit-env.sh
     - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=${DEVKITPRO}/cmake/3DS.cmake
     - cmake --build build
-    - 3dsxtool build/luxon_server.elf build/luxon_server.3dsx || 3dsxtool build/luxon_server build/luxon_server.3dsx
+    - 3dsxtool build/luxon_server.elf build/luxon_server.3dsx
+    - mv build/luxon_server.elf build/luxon_server.devkitarm.rel+debinfo.elf
+    - mv build/luxon_server.3dsx build/luxon_server.devkitarm.release.3dsx
+
+# Strips each generated rel+debinfo binary to generate release binary
+strip_binaries:
+  stage: strip
+  image: debian:trixie
+  before_script:
+    - apt-get update && apt-get install -y llvm
+  script:
+    - |
+      for file in build/*rel+debinfo*; do
+        if [ -f "$file" ]; then
+          release_file=$(echo "$file" | sed 's/rel+debinfo/release/')
+          
+          cp "$file" "$release_file"
+          
+          echo "Stripping $release_file..."
+          llvm-strip "$release_file"
+        fi
+      done
+  artifacts:
+    paths:
+      - build/luxon_server*
+    expire_in: 1 week
