@@ -15,9 +15,21 @@ Ducks Can Drive
 Easy Red 2
 + Works flawlessly
 
+For The King
++ Works flawlessly
+
+Hasbro's BATTLESHIP
++ Works flawlessly
+
 KEABE: Kill 'Em All - Bunny Edition
 + Works flawlessly
 - Uses unimplemented opcode 0
+
+Knight Squad 2
++ Works flawlessly
+
+Roots of Pacha
++ Works perfectly
 
 Paint Warfare
 + Works flawlessly
@@ -35,6 +47,9 @@ Super Animal Royale:
 + Loads in game
 - Multiplayer broken because of unimplemented chat opcodes
 
+The Game of Life 2
++ Works flawlessly
+
 Touhou Crisis
 + Works flawlessly
 
@@ -46,8 +61,12 @@ Untitled Ghost Game
 
 
 Won't fix:
-Stumble Guys
-- Uses unimplemented server plugins
+
+Clone Drone in the Danger Zone
+- Uses Photon Bolt
+
+Stranded Deep
+- Uses Photon Bolt
 
 VRChat
 - Stay away, developers have pursued legal action against third party hosted multiplayer before
