@@ -70,6 +70,17 @@ build:nintendo_3ds:
     - mv build/luxon_server.elf build/luxon_server.devkitarm.rel+debinfo.elf
     - mv build/luxon_server.3dsx build/luxon_server.devkitarm.release.3dsx
 
+# RelWithDebInfo build amd64 via MSVC
+build:msvc:amd64:
+  extends: .build_template
+  tags:
+    - saas-windows-medium-amd64
+  script:
+    - cmake -B build -G "Visual Studio 17 2022" -A x64 -DMBEDTLS_FATAL_WARNINGS=OFF
+    - cmake --build build --config RelWithDebInfo
+    - cmake -E rename build/RelWithDebInfo/luxon_server.exe build/luxon_server.msvc.rel+debinfo.exe
+    - cmake -E rename build/RelWithDebInfo/luxon_server.pdb build/luxon_server.msvc.rel+debinfo.pdb
+
 # Strips each generated rel+debinfo binary to generate release binary
 strip_binaries:
   stage: strip
