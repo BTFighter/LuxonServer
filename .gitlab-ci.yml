@@ -78,8 +78,8 @@ build:msvc:amd64:
   script:
     - cmake -B build -G "Visual Studio 17 2022" -A x64 -DMBEDTLS_FATAL_WARNINGS=OFF
     - cmake --build build --config RelWithDebInfo
-    - cmake -E rename build/RelWithDebInfo/luxon_server.exe build/luxon_server.msvc.rel+debinfo.exe
-    - cmake -E rename build/RelWithDebInfo/luxon_server.pdb build/luxon_server.msvc.rel+debinfo.pdb
+    - cmake -E rename build/RelWithDebInfo/luxon_server.exe build/luxon_server.msvc.release.exe
+    - cmake -E rename build/RelWithDebInfo/luxon_server.pdb build/luxon_server.msvc.release.pdb
 
 # Strips each generated rel+debinfo binary to generate release binary
 strip_binaries:
