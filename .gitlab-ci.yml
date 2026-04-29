@@ -75,6 +75,9 @@ build:msvc:amd64:
   extends: .build_template
   tags:
     - saas-windows-medium-amd64
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "web"
   script:
     - cmake -B build -G "Visual Studio 17 2022" -A x64 -DMBEDTLS_FATAL_WARNINGS=OFF
     - cmake --build build --config RelWithDebInfo
