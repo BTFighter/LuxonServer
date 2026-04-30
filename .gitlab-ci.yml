@@ -70,6 +70,29 @@ build:nintendo_3ds:
     - mv build/luxon_server.elf build/luxon_server.devkitarm.rel+debinfo.elf
     - mv build/luxon_server.3dsx build/luxon_server.devkitarm.release.3dsx
 
+# RelWithDebInfo build amd64 via Debian Trixie (FreeBSD 15.0 Sysroot)
+build:freebsd:amd64:
+  extends: .build_template
+  image: debian:trixie
+  before_script:
+    - apt-get update && apt-get install -y clang lld cmake ninja-build git wget xz-utils
+    - wget https://download.freebsd.org/releases/amd64/15.0-RELEASE/base.txz
+    - mkdir -p freebsd-sysroot
+    - tar -xf base.txz -C freebsd-sysroot
+  script:
+    - export SYSROOT=$PWD/freebsd-sysroot
+    - >
+      cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      -DCMAKE_SYSTEM_NAME=FreeBSD
+      -DCMAKE_SYSTEM_PROCESSOR=amd64
+      -DCMAKE_C_COMPILER=clang
+      -DCMAKE_CXX_COMPILER=clang++
+      -DCMAKE_C_FLAGS="--target=x86_64-unknown-freebsd15.0 --sysroot=$SYSROOT"
+      -DCMAKE_CXX_FLAGS="--target=x86_64-unknown-freebsd15.0 --sysroot=$SYSROOT"
+      -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld --target=x86_64-unknown-freebsd15.0 --sysroot=$SYSROOT"
+    - cmake --build build
+    - mv build/luxon_server build/luxon_server.freebsd.rel+debinfo.amd64
+
 # RelWithDebInfo build amd64 via MSVC
 build:msvc:amd64:
   extends: .build_template
