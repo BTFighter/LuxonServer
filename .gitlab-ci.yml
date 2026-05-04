@@ -133,6 +133,7 @@ build:mingw:win2k_x86:
       -DCMAKE_CXX_FLAGS="-fno-threadsafe-statics"
       -DCMAKE_EXE_LINKER_FLAGS="-static -Wl,--subsystem,console:5.00"
       -DLUXON_USE_EMBED_RESOURCE=ON
+      -DLUXON_SERVER_USE_SANMAKE=OFF
     - cmake --build build
     - mv build/luxon_server.exe build/luxon_server.win2k.rel+debinfo.exe
 
