@@ -201,8 +201,8 @@ build:macos:amd64:
     - cmake --build build
     - mv build/luxon_server build/luxon_server.macosx-sdk.rel+debinfo.darwin-x86_64
 
-# RelWithDebInfo build x86 (32-bit) for Windows 2000 via GCC MinGW-w64
-build:mingw:win2k_x86:
+# RelWithDebInfo build x86 (32-bit) for Windows Vista via GCC MinGW-w64
+build:mingw:vista_x86:
   extends: .build_template
   image: debian:trixie
   before_script:
@@ -211,14 +211,15 @@ build:mingw:win2k_x86:
     - >
       cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
       -DCMAKE_SYSTEM_NAME=Windows
-      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc
-      -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++
-      -DCMAKE_CXX_FLAGS="-fno-threadsafe-statics"
-      -DCMAKE_EXE_LINKER_FLAGS="-static -Wl,--subsystem,console:5.00"
+      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc-posix
+      -DCMAKE_C_FLAGS="-D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+      -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++-posix
+      -DCMAKE_CXX_FLAGS="-D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+      -DCMAKE_EXE_LINKER_FLAGS="-static -Wl,--subsystem,console:6.00"
       -DLUXON_USE_EMBED_RESOURCE=ON
       -DLUXON_SERVER_USE_SANMAKE=OFF
     - cmake --build build
-    - mv build/luxon_server.exe build/luxon_server.win2k.rel+debinfo.exe
+    - mv build/luxon_server.exe build/luxon_server.mingw-vista.rel+debinfo.exe
 
 # RelWithDebInfo build amd64 via MSVC
 build:msvc:amd64:
