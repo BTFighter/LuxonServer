@@ -221,6 +221,22 @@ build:mingw:vista_x86:
     - cmake --build build
     - mv build/luxon_server.exe build/luxon_server.mingw-vista.rel+debinfo.exe
 
+# RelWithDebInfo build wasm32 via wasi-sdk 33 (Preview 1)
+build:wasip1:wasm32:
+  extends: .build_template
+  image: debian:trixie
+  before_script:
+    - apt-get update && apt-get install -y cmake ninja-build git wget tar gcc g++
+    - wget -q https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-33/wasi-sdk-33.0-x86_64-linux.tar.gz
+    - tar -xzf wasi-sdk-33.0-x86_64-linux.tar.gz -C /opt
+  script:
+    - export WASI_SDK_PREFIX=/opt/wasi-sdk-33.0-x86_64-linux
+    - >
+      cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      -DCMAKE_TOOLCHAIN_FILE=$WASI_SDK_PREFIX/share/cmake/wasi-sdk-p1.cmake
+    - cmake --build build
+    - mv build/luxon_server build/luxon_server.wasi-sdk.rel+debinfo.wasm
+
 # RelWithDebInfo build amd64 via MSVC
 build:msvc:amd64:
   extends: .build_template
