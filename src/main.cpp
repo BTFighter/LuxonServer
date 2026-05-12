@@ -4,18 +4,18 @@
 #include "luxon/server/server_manager.hpp"
 #include "platform.hpp"
 
-#ifdef __wasm__
+#ifdef __wasi__
 #include <print>
 #include <exception>
 #endif
 
 int main() {
     Platform P;
-#ifdef __wasm__
+#ifdef __wasi__
     try {
 #endif
         server::ServerManager("config.yml").run();
-#ifdef __wasm__
+#ifdef __wasi__
     } catch (const std::exception& e) {
         std::println("std::terminate about to be called: {}", e.what());
         throw;

@@ -54,7 +54,7 @@ INCBIN(style_css, LUXON_SERVER_WEB_ROOT "/style.css");
 #define GET_RESOURCE(name) {incbin_##name##_start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_##name##_end - incbin_##name##_start))}
 #endif
 
-#ifdef __wasm__
+#ifdef __wasi__
 #define FCNTL socket_fcntl
 #else
 #define FCNTL fcntl
