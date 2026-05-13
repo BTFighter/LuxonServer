@@ -86,3 +86,4 @@ CMakeLists.txt.user*
 out
 
 config.yml
+dependency-reduced-pom.xml
