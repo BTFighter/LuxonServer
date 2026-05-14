@@ -237,6 +237,25 @@ build:wasip1:wasm32:
     - cmake --build build
     - mv build/luxon_server build/luxon_server.wasi-sdk.rel+debinfo.wasm
 
+# Release build Java via OpenJDK 21
+package:java_wasm:
+  extends: .build_template
+  image: debian:trixie
+  needs:
+    - build:wasip1:wasm32
+  before_script:
+    - apt-get update && apt-get install -y openjdk-21-jdk-headless maven llvm
+  script:
+    - cp build/luxon_server.wasi-sdk.rel+debinfo.wasm WASMImpl/Java/src/main/luxon_server.wasm
+    - llvm-strip WASMImpl/Java/src/main/luxon_server.wasm
+    - cd WASMImpl/Java
+    - mvn clean package
+    - cp target/luxon-server-1.0.0-SNAPSHOT.jar ../../build/luxon_server.java-17.release.jar
+  artifacts:
+    paths:
+      - build/luxon_server.java-17.release.jar
+    expire_in: 1 week
+
 # RelWithDebInfo build amd64 via MSVC
 build:msvc:amd64:
   extends: .build_template
@@ -267,7 +286,7 @@ strip_binaries:
           cp "$file" "$release_file"
           
           echo "Stripping $release_file..."
-          llvm-strip "$release_file"
+          llvm-strip "$release_file" || true
         fi
       done
   artifacts:
