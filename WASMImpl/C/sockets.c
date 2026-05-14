@@ -1,8 +1,10 @@
 #include "luxon_server.h"
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/ioctl.h>
+#include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -14,6 +16,91 @@ struct w2c_env {
     w2c_luxon__server* instance;
 };
 
+static int get_fallback_address(const struct sockaddr* in_addr, struct sockaddr_storage* out_addr, socklen_t* out_len) {
+    if (in_addr->sa_family == AF_INET6) {
+        const struct sockaddr_in6* in6 = (const struct sockaddr_in6*)in_addr;
+        const uint8_t* raw = in6->sin6_addr.s6_addr;
+
+        int is_mapped = 1, is_any = 1, is_loopback = 1;
+        for (int i = 0; i < 10; i++) if (raw[i] != 0) is_mapped = 0;
+        if (raw[10] != 0xff || raw[11] != 0xff) is_mapped = 0;
+
+        for (int i = 0; i < 16; i++) if (raw[i] != 0) is_any = 0;
+
+        for (int i = 0; i < 15; i++) if (raw[i] != 0) is_loopback = 0;
+        if (raw[15] != 1) is_loopback = 0;
+
+        if (is_mapped || is_any || is_loopback) {
+            struct sockaddr_in* out4 = (struct sockaddr_in*)out_addr;
+            memset(out4, 0, sizeof(*out4));
+            out4->sin_family = AF_INET;
+            out4->sin_port = in6->sin6_port;
+
+            if (is_mapped) memcpy(&out4->sin_addr.s_addr, &raw[12], 4);
+            else if (is_any) out4->sin_addr.s_addr = htonl(INADDR_ANY);
+            else if (is_loopback) out4->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+            *out_len = sizeof(struct sockaddr_in);
+            return 1;
+        }
+    } else if (in_addr->sa_family == AF_INET) {
+        const struct sockaddr_in* in4 = (const struct sockaddr_in*)in_addr;
+        struct sockaddr_in6* out6 = (struct sockaddr_in6*)out_addr;
+        memset(out6, 0, sizeof(*out6));
+        out6->sin6_family = AF_INET6;
+        out6->sin6_port = in4->sin_port;
+
+        uint8_t* raw = out6->sin6_addr.s6_addr;
+        raw[10] = 0xff;
+        raw[11] = 0xff;
+        memcpy(&raw[12], &in4->sin_addr.s_addr, 4);
+
+        *out_len = sizeof(struct sockaddr_in6);
+        return 1;
+    }
+    return 0;
+}
+
+static void print_fallback_warning(const char* action, const struct sockaddr* orig, const struct sockaddr_storage* fall) {
+    char orig_str[INET6_ADDRSTRLEN] = {0};
+    char fall_str[INET6_ADDRSTRLEN] = {0};
+
+    if (orig->sa_family == AF_INET)
+        inet_ntop(AF_INET, &((const struct sockaddr_in*)orig)->sin_addr, orig_str, sizeof(orig_str));
+    else if (orig->sa_family == AF_INET6)
+        inet_ntop(AF_INET6, &((const struct sockaddr_in6*)orig)->sin6_addr, orig_str, sizeof(orig_str));
+
+    if (fall->ss_family == AF_INET)
+        inet_ntop(AF_INET, &((const struct sockaddr_in*)fall)->sin_addr, fall_str, sizeof(fall_str));
+    else if (fall->ss_family == AF_INET6)
+        inet_ntop(AF_INET6, &((const struct sockaddr_in6*)fall)->sin6_addr, fall_str, sizeof(fall_str));
+
+    fprintf(stderr, "WARNING: Unsupported address type for %s. Falling back from %s to %s\n", action, orig_str, fall_str);
+}
+
+static int retry_with_fallback(int sockfd, const struct sockaddr_storage* fall, socklen_t fall_len, int is_bind) {
+    int type = 0;
+    socklen_t t_len = sizeof(type);
+    if (getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &type, &t_len) < 0) return -1;
+
+    int new_fd = socket(fall->ss_family, type, 0);
+    if (new_fd < 0) return -1;
+
+    if (is_bind) {
+        int opt = 1;
+        setsockopt(new_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    }
+
+    // Atomically swap the new family FD underneath the guest's tracked FD index
+    dup2(new_fd, sockfd);
+    close(new_fd);
+
+    if (is_bind)
+        return bind(sockfd, (const struct sockaddr*)fall, fall_len);
+    else
+        return connect(sockfd, (const struct sockaddr*)fall, fall_len);
+}
+
 u32 w2c_env_socket_socket(struct w2c_env* env, u32 domain, u32 type, u32 protocol) {
     int res = socket((int)domain, (int)type, (int)protocol);
     return (u32)res;
@@ -24,7 +111,22 @@ u32 w2c_env_socket_bind(struct w2c_env* env, u32 sockfd, u32 addr_ptr, u32 addrl
     uint32_t mem_size = w2c_luxon__server_memory(env->instance)->size;
     if (addr_ptr + addrlen > mem_size) return (u32)-1;
 
-    int res = bind((int)sockfd, (const struct sockaddr*)(mem + addr_ptr), (socklen_t)addrlen);
+    // Apply SO_REUSEADDR strictly before binding
+    int opt = 1;
+    setsockopt((int)sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    const struct sockaddr* addr = (const struct sockaddr*)(mem + addr_ptr);
+    int res = bind((int)sockfd, addr, (socklen_t)addrlen);
+
+    if (res < 0) {
+        struct sockaddr_storage fall_addr;
+        socklen_t fall_len;
+        if (get_fallback_address(addr, &fall_addr, &fall_len)) {
+            print_fallback_warning("bind", addr, &fall_addr);
+            res = retry_with_fallback((int)sockfd, &fall_addr, fall_len, 1);
+        }
+    }
+
     return (u32)res;
 }
 
@@ -52,7 +154,18 @@ u32 w2c_env_socket_connect(struct w2c_env* env, u32 sockfd, u32 addr_ptr, u32 ad
     uint32_t mem_size = w2c_luxon__server_memory(env->instance)->size;
     if (addr_ptr + addrlen > mem_size) return (u32)-1;
 
-    int res = connect((int)sockfd, (const struct sockaddr*)(mem + addr_ptr), (socklen_t)addrlen);
+    const struct sockaddr* addr = (const struct sockaddr*)(mem + addr_ptr);
+    int res = connect((int)sockfd, addr, (socklen_t)addrlen);
+
+    if (res < 0) {
+        struct sockaddr_storage fall_addr;
+        socklen_t fall_len;
+        if (get_fallback_address(addr, &fall_addr, &fall_len)) {
+            print_fallback_warning("connect", addr, &fall_addr);
+            res = retry_with_fallback((int)sockfd, &fall_addr, fall_len, 0);
+        }
+    }
+
     return (u32)res;
 }
 
