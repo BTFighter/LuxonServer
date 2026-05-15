@@ -379,3 +379,17 @@ void w2c_env_socket_freeaddrinfo(struct w2c_env* env, u32 res_ptr) {
         curr = next_ptr;
     }
 }
+
+u32 w2c_env_socket_getsockname(struct w2c_env* env, u32 sockfd, u32 addr_ptr, u32 addrlen_ptr) {
+    uint8_t* mem = w2c_luxon__server_memory(env->instance)->data;
+    uint32_t mem_size = w2c_luxon__server_memory(env->instance)->size;
+
+    struct sockaddr* addr = addr_ptr ? (struct sockaddr*)(mem + addr_ptr) : NULL;
+    socklen_t* addrlen = addrlen_ptr ? (socklen_t*)(mem + addrlen_ptr) : NULL;
+
+    if (addrlen_ptr && addrlen_ptr + 4 > mem_size) return (u32)-1;
+    if (addr_ptr && addrlen && addr_ptr + *addrlen > mem_size) return (u32)-1;
+
+    int res = getsockname((int)sockfd, addr, addrlen);
+    return (u32)res;
+}

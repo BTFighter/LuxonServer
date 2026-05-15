@@ -771,6 +771,47 @@ public class LuxonServer {
             return new long[0];
         }));
 
+        // u32 w2c_env_socket_getsockname(sockfd, addr_ptr, addrlen_ptr) -> 3 params
+        env.add(new HostFunction(NS, "socket_getsockname", params(3), returns(1), (instance, args) -> {
+            int sockfd = (int) args[0];
+            int addrPtr = (int) args[1];
+            int addrlenPtr = (int) args[2];
+
+            SocketHandle h = sockets.get(sockfd);
+            if (h == null) return new long[] { -1L };
+
+            // POSIX ABI: if addr != NULL, addrlen must be a valid value-result pointer.
+            if (addrPtr != 0 && addrlenPtr == 0) {
+                return new long[] { -1L };
+            }
+
+            try {
+                SocketAddress local = null;
+                if (h.isServer && h.serverChannel != null) {
+                    local = h.serverChannel.getLocalAddress();
+                } else if (h.isUdp && h.datagramChannel != null) {
+                    local = h.datagramChannel.getLocalAddress();
+                } else if (h.socketChannel != null) {
+                    local = h.socketChannel.getLocalAddress();
+                }
+
+                if (local == null) {
+                    return new long[] { -1L };
+                }
+
+                if (addrPtr != 0) {
+                    if (!(local instanceof InetSocketAddress) ||
+                        !writeSockaddrResult(instance.memory(), addrPtr, addrlenPtr, (InetSocketAddress) local, h.family)) {
+                        return new long[] { -1L };
+                    }
+                }
+
+                return new long[] { 0 };
+            } catch (IOException e) {
+                return new long[] { -1L };
+            }
+        }));
+
         return env;
     }
 
