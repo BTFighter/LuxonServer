@@ -14,6 +14,9 @@
 #define S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK)
 #endif
 
+// Safe fake FD that won't collide
+#define FAKE_RANDOM_FD 0x7FFFFFFF
+
 struct w2c_wasi__snapshot__preview1 {
     w2c_luxon__server* instance;
 };
@@ -72,6 +75,7 @@ u32 w2c_wasi__snapshot__preview1_environ_sizes_get(struct w2c_wasi__snapshot__pr
 u32 w2c_wasi__snapshot__preview1_fd_close(struct w2c_wasi__snapshot__preview1* wasi, u32 fd) {
     // Avoid closing standard file descriptors inadvertently
     if (fd <= 2) return 0;
+    if (fd == FAKE_RANDOM_FD) return 0; // Fake PRNG file descriptor
     if (close((int)fd) < 0) return errno_to_wasi(errno);
     return 0;
 }
@@ -85,6 +89,13 @@ u32 w2c_wasi__snapshot__preview1_fd_fdstat_get(struct w2c_wasi__snapshot__previe
     if (fd == 3) {
         memset(mem + stat_ptr, 0, 24);
         mem[stat_ptr] = 3; // Directory
+        memset(mem + stat_ptr + 8, 0xff, 16); // Maximum rights
+        return 0;
+    }
+
+    if (fd == FAKE_RANDOM_FD) {
+        memset(mem + stat_ptr, 0, 24);
+        mem[stat_ptr] = 2; // Character device
         memset(mem + stat_ptr + 8, 0xff, 16); // Maximum rights
         return 0;
     }
@@ -113,6 +124,12 @@ u32 w2c_wasi__snapshot__preview1_fd_filestat_get(struct w2c_wasi__snapshot__prev
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
     if (buf_ptr + 64 > mem_size) return 28;
 
+    if (fd == FAKE_RANDOM_FD) {
+        memset(mem + buf_ptr, 0, 64);
+        mem[buf_ptr + 16] = 2; // Character device
+        return 0;
+    }
+
     struct stat st;
     if (fstat((int)fd, &st) < 0) return errno_to_wasi(errno);
 
@@ -135,11 +152,11 @@ u32 w2c_wasi__snapshot__preview1_fd_filestat_get(struct w2c_wasi__snapshot__prev
 }
 
 u32 w2c_wasi__snapshot__preview1_fd_filestat_set_size(struct w2c_wasi__snapshot__preview1* wasi, u32 fd, u64 size) {
+    if (fd == FAKE_RANDOM_FD) return 28; // EINVAL
     if (ftruncate((int)fd, (off_t)size) < 0) return errno_to_wasi(errno);
     return 0;
 }
 
-// Emulate a pre-opened root/current working directory at FD 3
 u32 w2c_wasi__snapshot__preview1_fd_prestat_get(struct w2c_wasi__snapshot__preview1* wasi, u32 fd, u32 buf_ptr) {
     uint8_t* mem = w2c_luxon__server_memory(wasi->instance)->data;
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
@@ -178,13 +195,22 @@ u32 w2c_wasi__snapshot__preview1_path_open(struct w2c_wasi__snapshot__preview1* 
     memcpy(host_path, mem + path_ptr, path_len);
     host_path[path_len] = '\0';
 
-    // Intercept relative WASI paths for system random devices and point them to absolute host paths
-    if (strcmp(host_path, "dev/urandom") == 0 || strcmp(host_path, "/dev/urandom") == 0) {
+    // Intercept relative WASI paths for system random devices
+    if (strcmp(host_path, "dev/urandom") == 0 || strcmp(host_path, "/dev/urandom") == 0 ||
+        strcmp(host_path, "dev/random") == 0 || strcmp(host_path, "/dev/random") == 0) {
+
+        const char* dev_path = strstr(host_path, "urandom") ? "/dev/urandom" : "/dev/random";
         free(host_path);
-        host_path = strdup("/dev/urandom");
-    } else if (strcmp(host_path, "dev/random") == 0 || strcmp(host_path, "/dev/random") == 0) {
-        free(host_path);
-        host_path = strdup("/dev/random");
+
+        int new_fd = open(dev_path, O_RDONLY | ((fdflags & 4) ? O_NONBLOCK : 0));
+        if (new_fd < 0) {
+            fprintf(stderr, "WARNING: %s could not be opened. Providing standard C PRNG fallback.\n", dev_path);
+            new_fd = FAKE_RANDOM_FD;
+        }
+
+        mem = w2c_luxon__server_memory(wasi->instance)->data;
+        *(uint32_t*)(mem + opened_fd_ptr) = new_fd;
+        return 0;
     }
 
     int host_flags = O_RDWR;
@@ -218,6 +244,26 @@ u32 w2c_wasi__snapshot__preview1_fd_read(struct w2c_wasi__snapshot__preview1* wa
     if (nread_ptr + 4 > mem_size) return 28;
 
     uint32_t total_read = 0;
+
+    // Handle virtual/fake PRNG FD explicitly
+    if (fd == FAKE_RANDOM_FD) {
+        for (u32 i = 0; i < iovs_len; i++) {
+            uint32_t iov_ptr = iovs_ptr + i * 8;
+            if (iov_ptr + 8 > mem_size) return 28;
+            uint32_t buf_ptr = *(uint32_t*)(mem + iov_ptr);
+            uint32_t buf_len = *(uint32_t*)(mem + iov_ptr + 4);
+            if (buf_ptr + buf_len > mem_size) return 28;
+
+            for (u32 j = 0; j < buf_len; j++) {
+                mem[buf_ptr + j] = rand() & 0xff;
+            }
+            total_read += buf_len;
+        }
+        *(uint32_t*)(mem + nread_ptr) = total_read;
+        return 0;
+    }
+
+    // Standard read
     for (u32 i = 0; i < iovs_len; i++) {
         uint32_t iov_ptr = iovs_ptr + i * 8;
         if (iov_ptr + 8 > mem_size) return 28;
@@ -242,6 +288,8 @@ u32 w2c_wasi__snapshot__preview1_fd_seek(struct w2c_wasi__snapshot__preview1* wa
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
     if (newoffset_ptr + 8 > mem_size) return 28;
 
+    if (fd == FAKE_RANDOM_FD) return 28; // EINVAL
+
     int w = SEEK_SET;
     if (whence == 1) w = SEEK_CUR;
     else if (whence == 2) w = SEEK_END;
@@ -253,6 +301,7 @@ u32 w2c_wasi__snapshot__preview1_fd_seek(struct w2c_wasi__snapshot__preview1* wa
 }
 
 u32 w2c_wasi__snapshot__preview1_fd_sync(struct w2c_wasi__snapshot__preview1* wasi, u32 fd) {
+    if (fd == FAKE_RANDOM_FD) return 0;
     if (fsync((int)fd) < 0) return errno_to_wasi(errno);
     return 0;
 }
@@ -261,6 +310,8 @@ u32 w2c_wasi__snapshot__preview1_fd_write(struct w2c_wasi__snapshot__preview1* w
     uint8_t* mem = w2c_luxon__server_memory(wasi->instance)->data;
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
     if (nwritten_ptr + 4 > mem_size) return 28;
+
+    if (fd == FAKE_RANDOM_FD) return 28; // EINVAL for write to random
 
     uint32_t total_written = 0;
     for (u32 i = 0; i < iovs_len; i++) {
@@ -305,6 +356,7 @@ u32 w2c_wasi__snapshot__preview1_random_get(struct w2c_wasi__snapshot__preview1*
         (void)ignored;
         fclose(f);
     } else {
+        fprintf(stderr, "WARNING: /dev/urandom not found. Falling back to PRNG for random_get.\n");
         for (u32 i = 0; i < buf_len; i++) {
             mem[buf_ptr + i] = rand() & 0xff;
         }
