@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,16 +68,23 @@ extern "C" {
 #include <windows.h>
 #define WASM_RT_MUTEX CRITICAL_SECTION
 #define WASM_RT_USE_CRITICALSECTION 1
+#elif defined(__DJGPP__)
+/* DOS is single-threaded, provide a dummy mutex. */
+typedef int dummy_mutex_t;
+#define WASM_RT_MUTEX dummy_mutex_t
 #else
 #include <pthread.h>
 #define WASM_RT_MUTEX pthread_mutex_t
 #define WASM_RT_USE_PTHREADS 1
 #endif
-
 #endif
 
 #ifdef WASM_RT_C11_AVAILABLE
+#if defined(__DJGPP__)
+#define WASM_RT_THREAD_LOCAL
+#else
 #define WASM_RT_THREAD_LOCAL _Thread_local
+#endif
 #elif defined(_MSC_VER)
 #define WASM_RT_THREAD_LOCAL __declspec(thread)
 #elif (defined(__GNUC__) || defined(__clang__)) && !defined(__APPLE__)

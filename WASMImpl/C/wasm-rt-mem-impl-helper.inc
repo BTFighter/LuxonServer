@@ -55,6 +55,11 @@
 #define MEMORY_LOCK_VAR_INIT(name) PTHREAD_MEMORY_LOCK_VAR_INIT(name)
 #define MEMORY_LOCK_AQUIRE(name) PTHREAD_MEMORY_LOCK_AQUIRE(name)
 #define MEMORY_LOCK_RELEASE(name) PTHREAD_MEMORY_LOCK_RELEASE(name)
+#else
+// Fallback for no multi-threading
+#define MEMORY_LOCK_VAR_INIT(name)
+#define MEMORY_LOCK_AQUIRE(name)
+#define MEMORY_LOCK_RELEASE(name)
 #endif
 
 #endif

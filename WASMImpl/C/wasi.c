@@ -10,8 +10,36 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifndef S_IFSOCK
+#define S_IFSOCK 0140000
+#endif
+
 #ifndef S_ISSOCK
 #define S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK)
+#endif
+
+#ifndef O_DIRECTORY
+#define O_DIRECTORY 0
+#endif
+
+#ifdef __DJGPP__
+#include <sys/time.h>
+
+typedef int clockid_t;
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
+#define CLOCK_PROCESS_CPUTIME_ID 2
+#define CLOCK_THREAD_CPUTIME_ID 3
+
+static int clock_gettime(clockid_t clk_id, struct timespec *tp) {
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) == 0) {
+        tp->tv_sec = tv.tv_sec;
+        tp->tv_nsec = tv.tv_usec * 1000;
+        return 0;
+    }
+    return -1;
+}
 #endif
 
 // Safe fake FD that won't collide
@@ -41,16 +69,48 @@ static u32 errno_to_wasi(int err) {
     }
 }
 
+static clockid_t translate_clock_id(u32 clock_id) {
+    switch (clock_id) {
+        case 0: return CLOCK_REALTIME;
+        case 1: return CLOCK_MONOTONIC;
+        case 2: return CLOCK_PROCESS_CPUTIME_ID;
+        case 3: return CLOCK_THREAD_CPUTIME_ID;
+        default: return CLOCK_REALTIME;
+    }
+}
+
+static int translate_whence_w2h(u32 wasi_whence) {
+    switch (wasi_whence) {
+        case 0: return SEEK_SET;
+        case 1: return SEEK_CUR;
+        case 2: return SEEK_END;
+        default: return SEEK_SET;
+    }
+}
+
+static int translate_oflags_w2h(u32 oflags) {
+    int host_flags = 0;
+    if (oflags & 1) host_flags |= O_CREAT;
+    if (oflags & 2) host_flags |= O_DIRECTORY;
+    if (oflags & 4) host_flags |= O_EXCL;
+    if (oflags & 8) host_flags |= O_TRUNC;
+    return host_flags;
+}
+
+static int translate_fdflags_w2h(u32 fdflags) {
+    int host_flags = 0;
+    if (fdflags & 1) host_flags |= O_APPEND;
+    if (fdflags & 4) host_flags |= O_NONBLOCK;
+    return host_flags;
+}
+
 u32 w2c_wasi__snapshot__preview1_clock_time_get(struct w2c_wasi__snapshot__preview1* wasi, u32 clock_id, u64 precision, u32 time_ptr) {
     uint8_t* mem = w2c_luxon__server_memory(wasi->instance)->data;
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
     if (time_ptr + 8 > mem_size) return 28;
 
     struct timespec ts;
-    clockid_t cid = CLOCK_REALTIME;
-    if (clock_id == 1) cid = CLOCK_MONOTONIC;
-    else if (clock_id == 2) cid = CLOCK_PROCESS_CPUTIME_ID;
-    else if (clock_id == 3) cid = CLOCK_THREAD_CPUTIME_ID;
+    clockid_t cid = translate_clock_id(clock_id);
 
     if (clock_gettime(cid, &ts) < 0) return errno_to_wasi(errno);
     uint64_t nanos = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
@@ -73,9 +133,8 @@ u32 w2c_wasi__snapshot__preview1_environ_sizes_get(struct w2c_wasi__snapshot__pr
 }
 
 u32 w2c_wasi__snapshot__preview1_fd_close(struct w2c_wasi__snapshot__preview1* wasi, u32 fd) {
-    // Avoid closing standard file descriptors inadvertently
     if (fd <= 2) return 0;
-    if (fd == FAKE_RANDOM_FD) return 0; // Fake PRNG file descriptor
+    if (fd == FAKE_RANDOM_FD) return 0;
     if (close((int)fd) < 0) return errno_to_wasi(errno);
     return 0;
 }
@@ -85,18 +144,17 @@ u32 w2c_wasi__snapshot__preview1_fd_fdstat_get(struct w2c_wasi__snapshot__previe
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
     if (stat_ptr + 24 > mem_size) return 28;
 
-    // Handle preopened directory descriptors gracefully
     if (fd == 3) {
         memset(mem + stat_ptr, 0, 24);
-        mem[stat_ptr] = 3; // Directory
-        memset(mem + stat_ptr + 8, 0xff, 16); // Maximum rights
+        mem[stat_ptr] = 3;
+        memset(mem + stat_ptr + 8, 0xff, 16);
         return 0;
     }
 
     if (fd == FAKE_RANDOM_FD) {
         memset(mem + stat_ptr, 0, 24);
-        mem[stat_ptr] = 2; // Character device
-        memset(mem + stat_ptr + 8, 0xff, 16); // Maximum rights
+        mem[stat_ptr] = 2;
+        memset(mem + stat_ptr + 8, 0xff, 16);
         return 0;
     }
 
@@ -126,7 +184,7 @@ u32 w2c_wasi__snapshot__preview1_fd_filestat_get(struct w2c_wasi__snapshot__prev
 
     if (fd == FAKE_RANDOM_FD) {
         memset(mem + buf_ptr, 0, 64);
-        mem[buf_ptr + 16] = 2; // Character device
+        mem[buf_ptr + 16] = 2;
         return 0;
     }
 
@@ -152,7 +210,7 @@ u32 w2c_wasi__snapshot__preview1_fd_filestat_get(struct w2c_wasi__snapshot__prev
 }
 
 u32 w2c_wasi__snapshot__preview1_fd_filestat_set_size(struct w2c_wasi__snapshot__preview1* wasi, u32 fd, u64 size) {
-    if (fd == FAKE_RANDOM_FD) return 28; // EINVAL
+    if (fd == FAKE_RANDOM_FD) return 28;
     if (ftruncate((int)fd, (off_t)size) < 0) return errno_to_wasi(errno);
     return 0;
 }
@@ -163,11 +221,11 @@ u32 w2c_wasi__snapshot__preview1_fd_prestat_get(struct w2c_wasi__snapshot__previ
     if (buf_ptr + 8 > mem_size) return 28;
 
     if (fd == 3) {
-        mem[buf_ptr] = 0; // WASI_PREOPENTYPE_DIR
-        *(uint32_t*)(mem + buf_ptr + 4) = 2; // Length of path "."
+        mem[buf_ptr] = 0;
+        *(uint32_t*)(mem + buf_ptr + 4) = 2;
         return 0;
     }
-    return 8; // EBADF signals end of pre-opened list
+    return 8;
 }
 
 u32 w2c_wasi__snapshot__preview1_fd_prestat_dir_name(struct w2c_wasi__snapshot__preview1* wasi, u32 fd, u32 path_ptr, u32 path_len) {
@@ -180,9 +238,9 @@ u32 w2c_wasi__snapshot__preview1_fd_prestat_dir_name(struct w2c_wasi__snapshot__
             memcpy(mem + path_ptr, ".", 2);
             return 0;
         }
-        return 28; // EINVAL
+        return 28;
     }
-    return 8; // EBADF
+    return 8;
 }
 
 u32 w2c_wasi__snapshot__preview1_path_open(struct w2c_wasi__snapshot__preview1* wasi, u32 fd, u32 dirflags, u32 path_ptr, u32 path_len, u32 oflags, u64 fs_rights_base, u64 fs_rights_inheriting, u32 fdflags, u32 opened_fd_ptr) {
@@ -191,11 +249,10 @@ u32 w2c_wasi__snapshot__preview1_path_open(struct w2c_wasi__snapshot__preview1* 
     if (path_ptr + path_len > mem_size || opened_fd_ptr + 4 > mem_size) return 28;
 
     char* host_path = (char*)malloc(path_len + 1);
-    if (!host_path) return 48; // ENOMEM
+    if (!host_path) return 48;
     memcpy(host_path, mem + path_ptr, path_len);
     host_path[path_len] = '\0';
 
-    // Intercept relative WASI paths for system random devices
     if (strcmp(host_path, "dev/urandom") == 0 || strcmp(host_path, "/dev/urandom") == 0 ||
         strcmp(host_path, "dev/random") == 0 || strcmp(host_path, "/dev/random") == 0) {
 
@@ -214,13 +271,8 @@ u32 w2c_wasi__snapshot__preview1_path_open(struct w2c_wasi__snapshot__preview1* 
     }
 
     int host_flags = O_RDWR;
-    if (oflags & 1) host_flags |= O_CREAT;
-    if (oflags & 2) host_flags |= O_DIRECTORY;
-    if (oflags & 4) host_flags |= O_EXCL;
-    if (oflags & 8) host_flags |= O_TRUNC;
-
-    if (fdflags & 1) host_flags |= O_APPEND;
-    if (fdflags & 4) host_flags |= O_NONBLOCK;
+    host_flags |= translate_oflags_w2h(oflags);
+    host_flags |= translate_fdflags_w2h(fdflags);
 
     int new_fd = open(host_path, host_flags, 0666);
 
@@ -231,7 +283,7 @@ u32 w2c_wasi__snapshot__preview1_path_open(struct w2c_wasi__snapshot__preview1* 
     }
 
     free(host_path);
-    if (new_fd < 0) return 44; // ENOENT / mapped error
+    if (new_fd < 0) return 44;
 
     mem = w2c_luxon__server_memory(wasi->instance)->data;
     *(uint32_t*)(mem + opened_fd_ptr) = new_fd;
@@ -245,7 +297,6 @@ u32 w2c_wasi__snapshot__preview1_fd_read(struct w2c_wasi__snapshot__preview1* wa
 
     uint32_t total_read = 0;
 
-    // Handle virtual/fake PRNG FD explicitly
     if (fd == FAKE_RANDOM_FD) {
         for (u32 i = 0; i < iovs_len; i++) {
             uint32_t iov_ptr = iovs_ptr + i * 8;
@@ -263,7 +314,6 @@ u32 w2c_wasi__snapshot__preview1_fd_read(struct w2c_wasi__snapshot__preview1* wa
         return 0;
     }
 
-    // Standard read
     for (u32 i = 0; i < iovs_len; i++) {
         uint32_t iov_ptr = iovs_ptr + i * 8;
         if (iov_ptr + 8 > mem_size) return 28;
@@ -288,11 +338,9 @@ u32 w2c_wasi__snapshot__preview1_fd_seek(struct w2c_wasi__snapshot__preview1* wa
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
     if (newoffset_ptr + 8 > mem_size) return 28;
 
-    if (fd == FAKE_RANDOM_FD) return 28; // EINVAL
+    if (fd == FAKE_RANDOM_FD) return 28;
 
-    int w = SEEK_SET;
-    if (whence == 1) w = SEEK_CUR;
-    else if (whence == 2) w = SEEK_END;
+    int w = translate_whence_w2h(whence);
 
     off_t res = lseek((int)fd, (off_t)offset, w);
     if (res == (off_t)-1) return errno_to_wasi(errno);
@@ -311,7 +359,7 @@ u32 w2c_wasi__snapshot__preview1_fd_write(struct w2c_wasi__snapshot__preview1* w
     uint32_t mem_size = w2c_luxon__server_memory(wasi->instance)->size;
     if (nwritten_ptr + 4 > mem_size) return 28;
 
-    if (fd == FAKE_RANDOM_FD) return 28; // EINVAL for write to random
+    if (fd == FAKE_RANDOM_FD) return 28;
 
     uint32_t total_written = 0;
     for (u32 i = 0; i < iovs_len; i++) {
