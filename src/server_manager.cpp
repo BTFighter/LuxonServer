@@ -1,42 +1,67 @@
 // Copyright (c) 2026, the Luxon Server contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
+// Copyright (c) 2026, the Luxon Server contributors
+// SPDX-License-Identifier: BSD-3-Clause
+
 /*
  * MACRO CONFIGURATION
  * ---------------------------
  * This file relies on the following preprocessor macros to control build variants,
- * memory management strategies, and I/O models:
+ * memory management strategies, concurrency features, and I/O models:
  *
- * LUXON_SERVER_ENABLE_PLUGINS
- * Enables asynchronous plugin architecture.
- * - Switches connection handlers (HANDLER_PTR) from std::unique_ptr to std::shared_ptr
- *   to support shared ownership required by coroutines.
+ * LUXON_SERVER_ENABLE_COROUTINES
+ * Enables the asynchronous coroutine architecture.
+ * - Switches connection handlers (HandlerPtr) from std::unique_ptr to std::shared_ptr
+ *   to support the shared lifecycle ownership required by detached coroutines.
  * - Wraps incoming ENet packet handling (HandleENetCommand) inside a coroutine
- *   (minicoro), allowing handlers to yield execution without blocking the server.
- * - Enables the `main_loop_calls_` queue to safely execute tasks scheduled from
- *   coroutines onto the main thread.
+ *   (minicoro), allowing handlers to yield execution without blocking the server thread.
+ * - Exposes non-blocking execution yield utilities like `delay` and thread-safe main-loop queues.
+ *
+ * LUXON_SERVER_MULTITHREADED
+ * Toggles multithreading capabilities and thread-safe synchronization.
+ * - Enables the `main_loop_calls_` queue and protects it via `main_loop_calls_mutex_`
+ *   to safely dispatch tasks from arbitrary threads back onto the main loop thread.
+ * - When combined with LUXON_SERVER_ENABLE_COROUTINES, enables `call_in_side_thread`
+ *   and `call_in_new_thread` to offload heavy tasks and safely resume coroutines upon completion.
+ *
+ * LUXON_SERVER_ENABLE_SETTINGS_DATABASE
+ * Toggles embedded settings database management.
+ * - Parses the "SettingsDatabase" path string from the root YAML configuration map.
+ * - Conditionally initializes the `settings_manager` object lifecycle within the server manager.
+ *
+ * LUXON_SERVER_ENABLE_HOOKPOINTS
+ * Toggles server event interception extensions.
+ * - Instantiates the `hookpoints` structure inside the ServerManager to allow external
+ *   modules or plugins to register lifecycle and packet hooks.
+ *
+ * LUXON_ENET_ENABLE_METRICS
+ * Toggles granular network telemetry and telemetry tracking.
+ * - Instantiates internal `enet::Metrics` tracking objects and interval timers.
+ * - Flushes and ticks tracking data periodically (~1000ms intervals) during slow server updates.
+ * - Exposes metrics publicly via `get_enet_metrics()`.
  *
  * NDEBUG
  * Standard C++ macro for Release builds.
  * - If UNDEFINED (Debug build):
- * 1. Sets logger levels to `trace` for high verbosity.
- * 2. Enables expensive packet visualization (visualizer::print_ser_message)
- * and hex dumps for every incoming ENet command to aid protocol debugging.
+ *   1. Sets logger verbosity automatically to `trace` level.
+ *   2. Enables deep payload inspection (`visualizer::print_ser_message` / `print_http_message`)
+ *      and raw hex dumps for unrecognized ENet payloads to assist protocol debugging.
  *
  * LUXON_SERVER_ENABLE_WEBSERVER
  * Toggles the embedded HTTP server component.
- * - Parses the "HTTP" section of the YAML configuration.
- * - Instantiates the `http_server_` and manages its lifecycle.
- * - Collects performance metrics (`idle_time`, `busy_time`) to be served via HTTP.
- * - Hooks HTTP socket descriptors into the main loop (if not polling).
+ * - Parses the "HTTP" section of the YAML configuration map.
+ * - Instantiates the `http_server_` instance and handles automated lifecycle updates.
+ * - Collects performance diagnostics (`idle_time`, `busy_time` metrics) per loop tick.
+ * - Hooks HTTP socket file descriptors directly into the main read selector (if not polling).
  *
  * LUXON_SERVER_POLL
  * Determines the network I/O multiplexing strategy.
- * - If DEFINED: Uses a polling model. The `sock_selector_` logic is skipped,
- *   and the server presumably relies on non-blocking checks or external polling.
+ * - If DEFINED: Uses a manual polling model. The `sock_selector_` logic and its automated
+ *   descriptor registration blocks are skipped entirely.
  * - If UNDEFINED: Uses an event-driven model via `sock_selector_` (wrapping select/epoll).
- *   It registers file descriptors and blocks execution in `run_once` until sockets are
- *   readable.
+ *   Registers native server handles and embedded HTTP file descriptors to sleep efficiently
+ *   until socket readability is confirmed.
  */
 
 #include "server_manager.hpp"
@@ -58,8 +83,10 @@
 #include <exception>
 #include <stdexcept>
 #include <algorithm>
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_MULTITHREADED
 #include <thread>
+#endif
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
 #include <minicoropp.hpp>
 #endif
 #include <luxon/ser_gp_binary_v18.hpp>
@@ -313,7 +340,8 @@ ServerManager::ServerManager(ServerManagerConfig config) : endpoints(std::move(c
     setup();
 }
 
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
+#ifdef LUXON_SERVER_MULTITHREADED
 bool ServerManager::call_in_side_thread(const SideThreadPtr& side_thread, std::move_only_function<void()>&& fn) {
     if (!side_thread)
         return false;
@@ -368,6 +396,7 @@ bool ServerManager::call_in_new_thread(std::move_only_function<void()>&& fn) {
     coro->yield();
     return ok;
 }
+#endif
 
 bool ServerManager::delay(unsigned milliseconds) {
     auto *coro = minicoro::Coroutine::current();
@@ -463,13 +492,15 @@ bool ServerManager::run_once() {
         const bool slow_update = last_slow_update_.get() > 250;
         if (slow_update)
             last_slow_update_.reset();
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
         // Run stuff that's queued to run in the main loop asap
         while (true) {
             // Get next callback safely
             std::move_only_function<void()> fn{};
             {
+#ifdef LUXON_SERVER_MULTITHREADED
                 std::scoped_lock L(main_loop_calls_mutex_);
+#endif
                 if (!main_loop_calls_.empty()) {
                     fn = std::move(main_loop_calls_.front());
                     main_loop_calls_.pop();
@@ -619,7 +650,7 @@ void ServerManager::setup() {
             handler->set_allow_unsolicited(config.allow_unsolicited);
 
             // Handler pointer must be owning with plugins enabled to ensure no destruction while coroutine is active
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
             auto handler_ptr = handler;
 #else
             auto *handler_ptr = handler.get();
@@ -670,7 +701,7 @@ void ServerManager::setup() {
                     }
                 }
 #endif
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
                 if (!(new minicoro::Coroutine([handler, cmd = std::move(cmd), this](minicoro::Coroutine& coro) mutable {
                          // Make coroutine own itself
                          auto owned_coro =
@@ -688,7 +719,7 @@ void ServerManager::setup() {
                              peer.disconnect();
                          }
 
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
                      }))->resume()) {
                     peer->log->critical("Disconnecting because ENet command handler coroutine couldn't be started");
                     peer->disconnect();

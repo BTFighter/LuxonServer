@@ -18,7 +18,7 @@
 #ifdef LUXON_SERVER_ENABLE_WEBSERVER
 #include "http_server.hpp"
 #endif
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_MULTITHREADED
 #include "sidethread.hpp"
 #endif
 
@@ -31,7 +31,7 @@
 #include <memory>
 #include <utility>
 #include <functional>
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_MULTITHREADED
 #include <mutex>
 #endif
 #include <cstdint>
@@ -47,7 +47,7 @@ struct Peer;
 struct PeerPersistent;
 class App;
 
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
 template <typename T> using HandlerPtr = std::shared_ptr<T>;
 #else
 template <typename T> using HandlerPtr = std::unique_ptr<T>;
@@ -186,8 +186,8 @@ private:
     decltype(servers_)::iterator next_server_it_;
     std::list<HandlerPtr<HandlerBase>> connections_;
     std::priority_queue<ScheduledTask, std::vector<ScheduledTask>, std::greater<ScheduledTask>> scheduled_tasks_;
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
     std::queue<std::move_only_function<void()>> main_loop_calls_;
+#ifdef LUXON_SERVER_MULTITHREADED
     std::mutex main_loop_calls_mutex_;
 #endif
 
@@ -270,7 +270,8 @@ public:
         scheduled_tasks_.push({target_time, std::move(callback)});
     }
 
-#ifdef LUXON_SERVER_ENABLE_PLUGINS
+#ifdef LUXON_SERVER_ENABLE_COROUTINES
+#ifdef LUXON_SERVER_MULTITHREADED
     ///
     /// \brief Enqueues the given function in a side thread
     /// \param fn Function to call in thread
@@ -285,6 +286,7 @@ public:
     /// \note Non-blocking; Can only be used from inside of a coroutine
     ///
     bool call_in_new_thread(std::move_only_function<void()>&& fn);
+#endif
     ///
     /// \brief Wait for a while
     /// \param milliseconds Amount of milliseconds until function returns
@@ -300,7 +302,9 @@ public:
     /// \note This function is thread-safe
     ///
     void enqueue_in_main_loop(std::move_only_function<void()>&& fn) {
+#ifdef LUXON_SERVER_MULTITHREADED
         std::scoped_lock L(main_loop_calls_mutex_);
+#endif
         main_loop_calls_.emplace(std::move(fn));
     }
 #endif

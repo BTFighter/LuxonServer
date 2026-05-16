@@ -35,6 +35,17 @@ build:debian:amd64:
     - cmake --build build
     - mv build/luxon_server build/luxon_server.glibc.rel+debinfo.linux-x86_64
 
+# RelWithDebInfo build amd64 via Debian Trixie with fully exposed FFI
+build_fullffi:debian:amd64:
+  extends: .build_template
+  image: debian:trixie
+  before_script:
+    - apt-get update && apt-get install -y build-essential cmake ninja-build git libmbedtls-dev libspdlog-dev
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_UNITY_BUILD=ON -DLUXON_SERVER_BUILD_FFI=ON -DLUXON_SERVER_EXPOSE_FULL_FFI=ON
+    - cmake --build build
+    - mv build/libluxon_server_ffi.so build/luxon_server.fullffi.glibc.rel+debinfo.linux-x86_64
+
 # RelWithDebInfo build aarch64 via Debian Trixie
 build:debian:aarch64:
   extends: .build_template

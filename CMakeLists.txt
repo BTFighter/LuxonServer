@@ -22,10 +22,26 @@ endif()
 
 include(cmake/CPM.cmake)
 
+option(LUXON_SERVER_BUILD_FFI "Builds shared library with C FFI" OFF)
+option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of plugins" ${LUXON_SERVER_EXPOSE_FULL_FFI})
+
+if (LUXON_SERVER_BUILD_FFI)
+    option(LUXON_SERVER_EXPOSE_FULL_FFI "Build with full FFI interface exposed" OFF)
+    # If building FFI, coroutines are strictly disabled
+    set(LUXON_SERVER_ENABLE_COROUTINES OFF CACHE BOOL "Enable execution of handler code in coroutines" FORCE)
+else()
+    # If not building FFI, full FFI exposure must be strictly disabled
+    set(LUXON_SERVER_EXPOSE_FULL_FFI OFF CACHE BOOL "Build with full FFI interface exposed" FORCE)
+    if (LUXON_SERVER_ENABLE_PLUGINS OR LUXON_SERVER_BUILD_FFI)
+        option(LUXON_SERVER_ENABLE_COROUTINES "Enable execution of handler code in coroutines" OFF)
+    else()
+        set(LUXON_SERVER_ENABLE_COROUTINES OFF CACHE BOOL "Enable execution of handler code in coroutines" FORCE)
+    endif()
+endif()
+
 option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
-option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of plugins" OFF)
 option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
-option(LUXON_SERVER_HOOKPOINTS "Allows library user or plugins to hook into specific parts of Luxon Server" OFF)
+option(LUXON_SERVER_HOOKPOINTS "Allows library user or plugins to hook into specific parts of Luxon Server" ${LUXON_SERVER_EXPOSE_FULL_FFI})
 option(LUXON_USE_EMBED_RESOURCE "Use EmbedResource instead of incbin.h" OFF)
 option(LUXON_SERVER_TRACY "Build Luxon Server with tracy enabled" OFF)
 option(LUXON_SERVER_TRACY_ON_DEMAND "Only collect tracy data with profiler server connected" ON)
@@ -125,6 +141,22 @@ endif()
 add_executable(luxon_server src/main.cpp)
 target_link_libraries(luxon_server luxon_server_lib)
 
+if (LUXON_SERVER_BUILD_FFI)
+    if (NOT WASI)
+        add_library(luxon_server_ffi SHARED)
+    else()
+        add_executable(luxon_server_ffi)
+    endif()
+    target_sources(luxon_server_ffi PRIVATE src/ffi.cpp)
+    target_link_libraries(luxon_server_ffi luxon_server_lib)
+    target_include_directories(luxon_server_ffi PUBLIC ffi_include)
+    set_target_properties(luxon_server_ffi PROPERTIES
+        C_VISIBILITY_PRESET hidden
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN YES
+    )
+endif()
+
 # Windows specific fixes
 if (MSVC)
     target_compile_definitions(luxon_server_lib PUBLIC NOMINMAX)
@@ -164,16 +196,25 @@ if (LUXON_SERVER_HOOKPOINTS)
 endif()
 
 if (LUXON_SERVER_ENABLE_PLUGINS)
-    CPMAddPackage("gl:niansa/minicoropp@1.0")
-
     target_sources(luxon_server_lib PRIVATE
         include/luxon/server/game_plugin_base.hpp src/game_plugin_base.cpp
         include/luxon/server/game_plugin_registry.hpp src/game_plugin_registry.cpp
         include/luxon/server/auth_plugin_registry.hpp src/auth_plugin_registry.cpp
-        include/luxon/server/sidethread.hpp
     )
-    target_link_libraries(luxon_server_lib PUBLIC minicoropp)
     target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_ENABLE_PLUGINS)
+
+    if (NOT WASI)
+        target_sources(luxon_server_lib PRIVATE
+            include/luxon/server/sidethread.hpp
+        )
+        target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_MULTITHREADED)
+    endif()
+endif()
+
+if (LUXON_SERVER_ENABLE_COROUTINES)
+    CPMAddPackage("gl:niansa/minicoropp@1.0")
+    target_link_libraries(luxon_server_lib PUBLIC minicoropp)
+    target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_ENABLE_COROUTINES)
 endif()
 
 if (LUXON_SERVER_USE_SPDLOG)
