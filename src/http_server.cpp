@@ -44,14 +44,20 @@ DECLARE_RESOURCE_COLLECTION(http_resources);
 DECLARE_RESOURCE(http_resources, index_html);
 DECLARE_RESOURCE(http_resources, stats_html);
 DECLARE_RESOURCE(http_resources, style_css);
-#define GET_RESOURCE(name) LOAD_RESOURCE(http_resources, name).data 
+#define GET_RESOURCE(name) LOAD_RESOURCE(http_resources, name).data
 #else
 extern "C" {
 INCBIN(index_html, LUXON_SERVER_WEB_ROOT "/index.html");
 INCBIN(stats_html, LUXON_SERVER_WEB_ROOT "/stats.html");
 INCBIN(style_css, LUXON_SERVER_WEB_ROOT "/style.css");
 }
-#define GET_RESOURCE(name) {incbin_ ## name ## _start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_ ## name ## _end - incbin_ ## name ## _start))} 
+#define GET_RESOURCE(name) {incbin_##name##_start, static_cast<size_t>(reinterpret_cast<intptr_t>(incbin_##name##_end - incbin_##name##_start))}
+#endif
+
+#ifdef __wasi__
+#define FCNTL socket_fcntl
+#else
+#define FCNTL fcntl
 #endif
 
 using json = nlohmann::json;
@@ -60,12 +66,12 @@ using namespace luxon::ser;
 namespace server {
 namespace {
 void set_nonblocking(int fd) {
-#if defined(_WIN32)
+#ifdef _WIN32
     u_long mode = 1;
     ioctlsocket(fd, FIONBIO, &mode);
 #else
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    int flags = FCNTL(fd, F_GETFL, 0);
+    FCNTL(fd, F_SETFL, flags | O_NONBLOCK);
 #endif
 }
 
@@ -216,8 +222,11 @@ bool HttpServer::bind(const std::string& address, uint16_t port) {
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-#ifdef LUXON_ENET_HAS_PTON
+#if defined(LUXON_ENET_HAS_PTON)
     if (inet_pton(AF_INET, address.c_str(), &addr.sin_addr) <= 0) {
+#elif defined(_WIN32)
+    addr.sin_addr.s_addr = inet_addr(address.c_str());
+    if (addr.sin_addr.s_addr == INADDR_NONE && address != "255.255.255.255") {
 #else
     if (inet_aton(address.c_str(), &addr.sin_addr) == 0) {
 #endif
@@ -311,7 +320,7 @@ void HttpServer::service_now() {
     std::erase_if(clients_, [this](const HttpClient& c) {
         if (c.mark_for_delete) {
             CLOSE_SOCKET(c.fd);
-#ifndef LUXON_SERVER_POLL            
+#ifndef LUXON_SERVER_POLL
             on_delete_fd(c.fd);
 #endif
             return true;

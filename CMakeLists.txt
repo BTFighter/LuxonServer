@@ -9,12 +9,46 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# WASI-SDK support code
+if (WASI)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections")
+
+    add_compile_options(-fwasm-exceptions "SHELL:-mllvm -wasm-use-legacy-eh=false")
+    add_compile_definitions(-D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_SIGNAL)
+    add_link_options("SHELL:-mllvm -wasm-use-legacy-eh=false" -Wl,--export=malloc -Wl,--export=free)
+    link_libraries(-fwasm-exceptions -lunwind -lsetjmp -lwasi-emulated-process-clocks -lwasi-emulated-signal)
+endif()
+
 include(cmake/CPM.cmake)
 
-option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
-option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of plugins" OFF)
-option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
+option(LUXON_SERVER_BUILD_FFI "Builds shared library with C FFI" OFF)
+option(LUXON_SERVER_ENABLE_PLUGINS "Enable use of plugins" ${LUXON_SERVER_EXPOSE_FULL_FFI})
+
+include(CMakeDependentOption)
+
+# Base Options
+option(LUXON_SERVER_BUILD_FFI "Build the FFI" OFF)
+option(LUXON_SERVER_ENABLE_PLUGINS "Enable plugins" OFF)
+
+# Dependent Options
+cmake_dependent_option(LUXON_SERVER_EXPOSE_FULL_FFI
+    "Build with full FFI interface exposed" OFF
+    "LUXON_SERVER_BUILD_FFI" OFF)
+
+cmake_dependent_option(LUXON_SERVER_ENABLE_COROUTINES
+    "Enable execution of handler code in coroutines" OFF
+    "LUXON_SERVER_ENABLE_PLUGINS;NOT LUXON_SERVER_BUILD_FFI" OFF)
+
+# Hookpoints Logic
 option(LUXON_SERVER_HOOKPOINTS "Allows library user or plugins to hook into specific parts of Luxon Server" OFF)
+if (LUXON_SERVER_EXPOSE_FULL_FFI)
+    set(LUXON_SERVER_HOOKPOINTS ON CACHE BOOL "Allows library user or plugins to hook into specific parts of Luxon Server" FORCE)
+endif()
+
+# Standard Options
+option(LUXON_SERVER_ENABLE_WEBSERVER "Enable the built-in webserver" ON)
+option(LUXON_SERVER_POLL "Poll blindly instead of select with timeout, less efficient" OFF)
 option(LUXON_USE_EMBED_RESOURCE "Use EmbedResource instead of incbin.h" OFF)
 option(LUXON_SERVER_TRACY "Build Luxon Server with tracy enabled" OFF)
 option(LUXON_SERVER_TRACY_ON_DEMAND "Only collect tracy data with profiler server connected" ON)
@@ -27,34 +61,35 @@ if (NOT LUXON_SERVER_ENABLE_PLUGINS AND NOT WIN32 AND NOT LUXON_SERVER_TRACY)
     add_compile_definitions(thread_local=)
 endif()
 
-# MSVC-specific configurations
-if (MSVC)
-    # commoncpp gets compiled without ASAN and includes <vector>
-    # This causes issues during linking, so we have to turn it off
+# MSVC and WASI -specific configurations
+if (MSVC OR WASI)
     set(SANMAKE_ASAN OFF)
-
-    # incbin.h is not supported on MSVC
     set(LUXON_USE_EMBED_RESOURCE ON)
 endif()
 
-# Linux/Windows get to use mbedtls, spdlog and setting storage database support
-if (CMAKE_SYSTEM_NAME STREQUAL Linux OR CMAKE_SYSTEM_NAME STREQUAL Windows)
-    # Generic configuration
+# Linux/Windows/FreeBSD get to use sanmake, mbedtls, spdlog and setting storage database support
+if (CMAKE_SYSTEM_NAME MATCHES "^(Linux|Windows|FreeBSD|OpenBSD|Darwin)$")
     add_subdirectory(Luxon)
 
-    CPMAddPackage("gl:niansa/sanmake@1.0")
-
     option(LUXON_SERVER_USE_SPDLOG "Use spdlog for Luxon server" ON)
+    option(LUXON_SERVER_USE_SANMAKE "Use basic sanitizers for Luxon server" ON)
     option(LUXON_SERVER_ENABLE_SETTINGS_DATABASE "Build Luxon Server with settings storage database support enabled" ON)
 else()
     # Compatible configuration
     set(LUXON_USE_TOMCRYPT ON CACHE BOOL "Force use of libtomcrypt" FORCE)
 
     add_subdirectory(Luxon)
-    add_library(sanmake INTERFACE)
 
     set(LUXON_SERVER_USE_SPDLOG OFF)
+    set(LUXON_SERVER_USE_SANMAKE OFF)
     set(LUXON_SERVER_ENABLE_SETTINGS_DATABASE OFF)
+endif()
+
+# Include sanmake
+if (LUXON_SERVER_USE_SANMAKE)
+    CPMAddPackage("gl:niansa/sanmake@1.0")
+else()
+    add_library(sanmake INTERFACE)
 endif()
 
 # Include spdlog
@@ -102,16 +137,36 @@ target_link_libraries(luxon_server_lib
 target_include_directories(luxon_server_lib PRIVATE include/luxon/server tracy/public PUBLIC include)
 target_compile_definitions(luxon_server_lib PRIVATE SQLITE_CUSTOM_INCLUDE=sqlite3-config.h)
 
-if (CMAKE_BUILD_TYPE STREQUAL Debug)
-    target_link_libraries(luxon_server_lib PRIVATE luxon_visualizer)
+target_link_libraries(luxon_server_lib PRIVATE
+    $<$<CONFIG:Debug>:luxon_visualizer>
+)
+
+if (WASI)
+    target_link_libraries(luxon_server_lib PUBLIC wasm_sockets)
 endif()
 
 add_executable(luxon_server src/main.cpp)
 target_link_libraries(luxon_server luxon_server_lib)
 
+if (LUXON_SERVER_BUILD_FFI)
+    if (NOT WASI)
+        add_library(luxon_server_ffi SHARED)
+    else()
+        add_executable(luxon_server_ffi)
+    endif()
+    target_sources(luxon_server_ffi PRIVATE src/ffi.cpp)
+    target_link_libraries(luxon_server_ffi luxon_server_lib)
+    target_include_directories(luxon_server_ffi PUBLIC ffi_include)
+    set_target_properties(luxon_server_ffi PROPERTIES
+        C_VISIBILITY_PRESET hidden
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN YES
+    )
+endif()
+
 # Windows specific fixes
 if (MSVC)
-    target_compile_definitions(luxon_server_lib PRIVATE NOMINMAX)
+    target_compile_definitions(luxon_server_lib PUBLIC NOMINMAX)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
@@ -148,16 +203,25 @@ if (LUXON_SERVER_HOOKPOINTS)
 endif()
 
 if (LUXON_SERVER_ENABLE_PLUGINS)
-    CPMAddPackage("gl:niansa/minicoropp@1.0")
-
     target_sources(luxon_server_lib PRIVATE
         include/luxon/server/game_plugin_base.hpp src/game_plugin_base.cpp
         include/luxon/server/game_plugin_registry.hpp src/game_plugin_registry.cpp
         include/luxon/server/auth_plugin_registry.hpp src/auth_plugin_registry.cpp
-        include/luxon/server/sidethread.hpp
     )
-    target_link_libraries(luxon_server_lib PUBLIC minicoropp)
     target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_ENABLE_PLUGINS)
+
+    if (NOT WASI)
+        target_sources(luxon_server_lib PRIVATE
+            include/luxon/server/sidethread.hpp
+        )
+        target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_MULTITHREADED)
+    endif()
+endif()
+
+if (LUXON_SERVER_ENABLE_COROUTINES)
+    CPMAddPackage("gl:niansa/minicoropp@1.0")
+    target_link_libraries(luxon_server_lib PUBLIC minicoropp)
+    target_compile_definitions(luxon_server_lib PUBLIC LUXON_SERVER_ENABLE_COROUTINES)
 endif()
 
 if (LUXON_SERVER_USE_SPDLOG)
@@ -190,6 +254,10 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL Windows)
     target_link_libraries(luxon_server_lib PRIVATE ws2_32)
 elseif (CMAKE_SYSTEM_NAME STREQUAL Nintendo3DS)
     target_compile_definitions(luxon_server_lib PRIVATE PLATFORM_3DS)
+elseif (CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+    target_compile_definitions(luxon_server_lib PRIVATE PLATFORM_FREEBSD)
+elseif (CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    target_compile_definitions(luxon_server_lib PRIVATE PLATFORM_MACOS)
 endif()
 
 

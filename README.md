@@ -1,6 +1,6 @@
 # Luxon Server
 
-Luxon Server is a clean-room implementation of the Photon LoadBalancing server. It is built on top of the Luxon project, which provides the necessary reimplementation of the ENet protocol and Photon's binary serialization format.
+Luxon Server is a clean-room implementation of the Photon Realtime server. It is built on top of the Luxon project, which provides the necessary reimplementation of the ENet protocol and Photon's binary serialization format.
 The goal of this project is to be a drop-in replacement for the official server for multiplayer games that utilize Photon. It aims to support games out of the box, provided they do not rely on complex server-side plugins, though a plugin system is available if needed.
 
 ## Table of Contents
@@ -86,13 +86,17 @@ cmake --build .
 Possible compile time options:
  - **`LUXON_SERVER_ENABLE_WEBSERVER`** (default: `ON`): Enable the built-in webserver including the web interface
  - **`LUXON_SERVER_ENABLE_PLUGINS`** (default: `OFF`): Enables plugin system
+ - **`LUXON_PLUGINS`** (default: empty): Semicolon separated list of CMake projects to configure containing `luxon_register_plugin()` CMake calls for statically linking a plugin into Luxon Server
+ - **`LUXON_SERVER_ENABLE_COROUTINES`** (default: `OFF`): Enables coroutines, potentially required for some plugins, makes plugin development easier. *Only available if `LUXON_SERVER_ENABLE_PLUGINS` is `ON`. Strictly disabled if `LUXON_SERVER_BUILD_FFI` is `ON`*
+ - **`LUXON_SERVER_BUILD_FFI`** (default: `OFF`): Builds the FFI library
+ - **`LUXON_SERVER_EXPOSE_FULL_FFI`** (default: `OFF`): Enables all features required to expose the *full* FFI. *Only available if `LUXON_SERVER_BUILD_FFI` is `ON`. Forces `LUXON_SERVER_HOOKPOINTS` to be `ON`*
  - **`LUXON_SERVER_POLL`** (default: `OFF`): Polls sockets blindly and rapidly, less efficient and slower
- - **`LUXON_SERVER_HOOKPOINTS`** (default: `OFF`): Useful when linking LuxonServer as a library, allows hooking into some parts of the server via `ServerManager::hookpoints` (see [hookpoints.hpp](https://github.com/niansa/LuxonServer/blob/master/include/luxon/server/hookpoints.hpp))
- - **`LUXON_USE_EMBED_RESOURCE`** (default: `OFF` except on Windows): Uses the [embedresource](https://github.com/ankurvdev/embedresource) library for binary embedding instead of inline assembly
+ - **`LUXON_SERVER_HOOKPOINTS`** (default: `OFF`, forced `ON` if full FFI is exposed): Useful when linking LuxonServer as a library, allows hooking into some parts of the server via `ServerManager::hookpoints` (see [hookpoints.hpp](https://github.com/niansa/LuxonServer/blob/master/include/luxon/server/hookpoints.hpp))
+ - **`LUXON_USE_EMBED_RESOURCE`** (default: `OFF` except on Windows and WebAssembly): Uses the [embedresource](https://github.com/ankurvdev/embedresource) library for binary embedding instead of inline assembly
  - **`LUXON_SERVER_TRACY`** (default: `OFF`): Links and enables [Tracy](https://github.com/wolfpld/tracy) client
  - **`LUXON_ENET_ENABLE_METRICS`** (default: `OFF`): Collects more metrics available as a Prometheus endpoint on webserver (`/metrics`), ready for use with provided [Grafana Dashboard](https://github.com/niansa/LuxonServer/blob/master/grafana-dashboard.json)
  - **`LUXON_USE_TOMCRYPT`** (default: `OFF`): Use alternative encryption library with wider compatibility
-
+ 
 ### Configuration
 
 The server is configured via a `config.yml` file. A `config.example.yml` is provided in the repository.
@@ -118,21 +122,39 @@ Once this is set, the game will connect to Luxon Server thinking it is the offic
 
 ## Features
 
-* **LoadBalancing Logic:** Full implementation of the Name/Master/Game server flow.
+* **Load Balancing Logic:** Full implementation of the Name/Master/Game server flow.
 * **Web Dashboard:** An embedded HTTP server (default port 5088) provides a real-time monitor. It shows active connections, packet loss, round-trip times, and a visual graph of server load/busy time at path `/stats`.
 * **Peer Persistence:** Handles player authentication tokens and state transfer between Master and Game servers.
 * **Plugin System (Optional):** If you need custom server-side logic, Luxon supports plugins written in C++ using coroutines. This is disabled by default in CMake (LUXON_SERVER_ENABLE_PLUGINS=OFF) to keep the build lightweight, strictly single-threaded and coroutine-free.
 
 ## Platform Support
 
-The server is primarily developed for Linux and Windows. There is also full support (excluding plugins) for Nintendo 3DS (because why not).
+Luxon Server is highly portable. It natively runs on: 
+ * Linux
+ * Windows (down to Vista)
+ * Mac OS
+ * FreeBSD
+ * OpenBSD
+ * Nintendo 3DS (devkitpro)
+
+It can additionally target WASI (preview 1) with a custom BSD sockets interface (as p1 doesn't provide one that is complete enough).
+This allows it to be compiled down to other languages / ILs, allowing support for "runtime-native" execution in:
+ * [JVM](/WASMImpl/Java/)
+ * dotnet/mono runtime
+ * V8
+
+Compilation to C and then to old platforms is also possible, including:
+ * [DOS](WASMImpl/C/)
+ * Windows 3.1 with *win32s*
+
+Note that I can't "officially" support the latter 2 platforms. Expect them to run non-optimally. Still free to create an issue if you see any problems with them.
 
 ## FAQ
 
 **Q:** Why is the server completely single-threaded?\
-**A:** Luxon Server is NOT supposed to be used as an alternative the the official LoadBalancing software. That means it doesn't have to handle loads big enough to saturate a single core even on very low-end systems. I have estimated the *New Nintendo 3DS* as a server to be able to handle at least 10, probably up to 30 concurrently active players! Plus, strict single-threading keeps the codebase simple.
+**A:** Luxon Server is NOT supposed to be used as an alternative the the official Photon Server SDK. That means it doesn't have to handle loads big enough to saturate a single core even on very low-end systems. I have estimated the *New Nintendo 3DS* as a server to be able to handle at least 10, probably up to 30 concurrently active players! Plus, strict single-threading keeps the codebase simple.
 
-**Q:** Are there any plans on implementing *actual* load balancing (not just the protocol) across multiple systems/processes?\
+**Q:** Are there any plans on implementing *actual* load balancing (not just the protocol part of it) across multiple systems/processes?\
 **A:** I have looked into spawning more processes running GameServer instances, as an alternative to multi-threading. However, I am strictly against supporting load balancing across different systems. I do NOT want to agitate Exit Games by releasing a competitive product.
 
 **Q:** Are you going to write bindings for writing plugins in C#, Python, Javascript, ...?\

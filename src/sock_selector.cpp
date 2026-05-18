@@ -8,7 +8,7 @@
 
 namespace server {
 namespace {
-#ifndef __linux__
+#if !defined(__linux__) && !defined(_WIN32)
 timeval ms_to_timeval(unsigned long long ms) {
     timeval tv;
     tv.tv_sec = ms / 1000;

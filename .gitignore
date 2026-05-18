@@ -84,3 +84,6 @@ CMakeLists.txt.user*
 # Files + Folders generated when using Visual Studio
 .vs
 out
+
+config.yml
+dependency-reduced-pom.xml
